@@ -44,14 +44,14 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
-        setUser(currentUser);
         configureAccessTokenProvider(async () => currentUser.getIdToken());
+        setUser(currentUser);
       } else if (import.meta.env.DEV && (window.location.search.includes("dev=true") || localStorage.getItem("mira-dev-user") === "true")) {
-        setUser({ uid: "dev-user", email: "mani@mira.app", displayName: "Mani", getIdToken: async () => "dev-mock-token" });
         configureAccessTokenProvider(async () => "dev-mock-token");
+        setUser({ uid: "dev-user", email: "mani@mira.app", displayName: "Mani", getIdToken: async () => "dev-mock-token" });
       } else {
-        setUser(null);
         configureAccessTokenProvider(null);
+        setUser(null);
       }
       setAuthReady(true);
     });
@@ -75,14 +75,14 @@ export default function App() {
     try {
       localStorage.removeItem("mira-dev-user");
       await signOut(auth);
-      setUser(null);
       configureAccessTokenProvider(null);
+      setUser(null);
     } catch {
       setAuthError("Could not sign you out right now. Please try again.");
     }
   }
 
-  const manager = useExpenseManager(Boolean(user));
+  const manager = useExpenseManager(user);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
   const [saving, setSaving] = useState(false);

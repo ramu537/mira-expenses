@@ -3,7 +3,7 @@ import { budgetApi } from "../api/budgets";
 import { expenseApi } from "../api/expenses";
 import { currentMonth, monthBounds, shiftMonth } from "../lib/spending";
 
-export function useExpenseManager(enabled = true) {
+export function useExpenseManager(user = null) {
   const requestSequence = useRef(0);
   const [month, setMonth] = useState(currentMonth);
   const [expenses, setExpenses] = useState([]);
@@ -13,7 +13,7 @@ export function useExpenseManager(enabled = true) {
   const [loadError, setLoadError] = useState("");
 
   const load = useCallback(async () => {
-    if (!enabled) return;
+    if (!user) return;
     const requestId = requestSequence.current + 1;
     requestSequence.current = requestId;
     setLoading(true);
@@ -36,14 +36,16 @@ export function useExpenseManager(enabled = true) {
     } finally {
       if (requestId === requestSequence.current) setLoading(false);
     }
-  }, [month]);
+  }, [user, month]);
 
   useEffect(() => {
-    load();
+    if (user) {
+      load();
+    }
     return () => {
       requestSequence.current += 1;
     };
-  }, [load]);
+  }, [load, user]);
 
   const actions = useMemo(() => ({
     async saveExpense(expense, editingId = null) {
