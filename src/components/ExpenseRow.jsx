@@ -22,7 +22,11 @@ export default function ExpenseRow({ expense, onEdit, onDelete, compact = false 
       <CategoryIcon category={expense.category} />
       <button className="expense-row__main" type="button" onClick={() => onEdit(expense)}>
         <strong>{expense.title}</strong>
-        <small>{category.label}{expense.note ? ` · ${expense.note}` : ""}</small>
+        <small>
+          {category.label}
+          {expense.source === "MCP" && <span className="source-badge">Logged by assistant</span>}
+          {expense.note ? ` · ${expense.note}` : ""}
+        </small>
       </button>
       <strong className="expense-row__amount">−{currency.format(expense.amount)}</strong>
       {!compact && (
@@ -51,4 +55,3 @@ export default function ExpenseRow({ expense, onEdit, onDelete, compact = false 
     </article>
   );
 }
-

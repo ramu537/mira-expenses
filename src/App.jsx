@@ -111,8 +111,15 @@ export default function App() {
   async function saveExpense(expense) {
     setSaving(true);
     try {
-      await manager.actions.saveExpense(expense, editingExpense?.id);
-      setToast({ tone: "success", message: editingExpense ? "Expense updated." : "Expense added." });
+      const saved = await manager.actions.saveExpense(expense, editingExpense?.id);
+      setToast({
+        tone: saved.possibleDuplicate ? "warning" : "success",
+        message: editingExpense
+          ? `${saved.title} updated.`
+          : saved.possibleDuplicate
+            ? `${saved.title} saved. This may match an existing expense.`
+            : `${saved.title} · ₹${Number(saved.amount).toLocaleString("en-IN")} saved.`,
+      });
       setDialogOpen(false);
       setEditingExpense(null);
     } catch (error) {
@@ -125,8 +132,20 @@ export default function App() {
   async function deleteExpense(id) {
     setDeletingId(id);
     try {
-      await manager.actions.deleteExpense(id);
-      setToast({ tone: "success", message: "Expense deleted." });
+      const deleted = await manager.actions.deleteExpense(id);
+      setToast({
+        tone: "success",
+        message: `${deleted.title} deleted.`,
+        actionLabel: "Undo",
+        action: async () => {
+          try {
+            await manager.actions.restoreExpense(deleted.id);
+            setToast({ tone: "success", message: `${deleted.title} restored.` });
+          } catch (error) {
+            setToast({ tone: "error", message: error.message });
+          }
+        },
+      });
       return true;
     } catch (error) {
       setToast({ tone: "error", message: error.message });
@@ -242,6 +261,7 @@ export default function App() {
         expense={editingExpense}
         month={manager.month}
         busy={saving}
+        recentExpenses={manager.expenses}
         onClose={closeDialog}
         onSave={saveExpense}
       />

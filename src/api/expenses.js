@@ -20,5 +20,7 @@ export const expenseApi = {
   remove(id) {
     return apiRequest(`/expenses/${encodeURIComponent(id)}`, { method: "DELETE" });
   },
+  restore(id) {
+    return apiRequest(`/expenses/${encodeURIComponent(id)}/restore`, { method: "POST" });
+  },
 };
-

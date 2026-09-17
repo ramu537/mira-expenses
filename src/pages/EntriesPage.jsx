@@ -8,21 +8,38 @@ import { categories, currency, groupExpenses, monthLabel, readableDate } from ".
 export default function EntriesPage({ month, expenses, deletingId, onAdd, onEdit, onDelete }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("ALL");
+  const [minimumAmount, setMinimumAmount] = useState("");
+  const [maximumAmount, setMaximumAmount] = useState("");
+  const [sortOrder, setSortOrder] = useState("NEWEST");
   const [pendingDelete, setPendingDelete] = useState(null);
 
   const filtered = useMemo(() => {
     const search = query.trim().toLowerCase();
     return expenses.filter((expense) => {
       const item = categories[expense.category] || categories.OTHER;
+      const amount = Number(expense.amount);
       const matchesCategory = category === "ALL" || expense.category === category;
       const searchable = `${expense.title} ${expense.note || ""} ${item.label}`.toLowerCase();
-      return matchesCategory && (!search || searchable.includes(search));
-    });
-  }, [category, expenses, query]);
+      return matchesCategory
+        && (!search || searchable.includes(search))
+        && (!minimumAmount || amount >= Number(minimumAmount))
+        && (!maximumAmount || amount <= Number(maximumAmount));
+    }).sort((left, right) => sortOrder === "OLDEST"
+      ? left.spentOn.localeCompare(right.spentOn)
+      : right.spentOn.localeCompare(left.spentOn));
+  }, [category, expenses, maximumAmount, minimumAmount, query, sortOrder]);
 
-  const groups = useMemo(() => groupExpenses(filtered), [filtered]);
+  const groups = useMemo(() => groupExpenses(filtered, sortOrder), [filtered, sortOrder]);
   const total = filtered.reduce((sum, expense) => sum + Number(expense.amount), 0);
-  const filteredState = Boolean(query.trim()) || category !== "ALL";
+  const filteredState = Boolean(query.trim()) || category !== "ALL" || Boolean(minimumAmount) || Boolean(maximumAmount);
+
+  function clearFilters() {
+    setQuery("");
+    setCategory("ALL");
+    setMinimumAmount("");
+    setMaximumAmount("");
+    setSortOrder("NEWEST");
+  }
 
   async function confirmDelete() {
     if (!pendingDelete) return;
@@ -74,6 +91,25 @@ export default function EntriesPage({ month, expenses, deletingId, onAdd, onEdit
         </div>
       </section>
 
+      <section className="secondary-filters" aria-label="Amount and order filters">
+        <label>
+          <span>Minimum</span>
+          <span className="compact-money-input"><span>₹</span><input type="number" min="0" inputMode="decimal" placeholder="0" value={minimumAmount} onChange={(event) => setMinimumAmount(event.target.value)} /></span>
+        </label>
+        <label>
+          <span>Maximum</span>
+          <span className="compact-money-input"><span>₹</span><input type="number" min="0" inputMode="decimal" placeholder="Any" value={maximumAmount} onChange={(event) => setMaximumAmount(event.target.value)} /></span>
+        </label>
+        <label>
+          <span>Order</span>
+          <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
+            <option value="NEWEST">Newest first</option>
+            <option value="OLDEST">Oldest first</option>
+          </select>
+        </label>
+        {filteredState && <button type="button" onClick={clearFilters}>Clear filters</button>}
+      </section>
+
       <div className="result-summary" aria-live="polite">
         <span>{filtered.length} {filtered.length === 1 ? "result" : "results"}</span>
         <strong>{currency.format(total)}</strong>
@@ -112,4 +148,3 @@ export default function EntriesPage({ month, expenses, deletingId, onAdd, onEdit
     </div>
   );
 }
-

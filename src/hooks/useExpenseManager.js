@@ -49,13 +49,32 @@ export function useExpenseManager(user = null) {
 
   const actions = useMemo(() => ({
     async saveExpense(expense, editingId = null) {
-      if (editingId) await expenseApi.update(editingId, expense);
-      else await expenseApi.create(expense);
-      await load();
+      const saved = editingId
+        ? await expenseApi.update(editingId, expense)
+        : await expenseApi.create(expense);
+      setExpenses((current) => {
+        const withoutSaved = current.filter((item) => item.id !== saved.id);
+        if (!saved.spentOn.startsWith(month)) return withoutSaved;
+        return [...withoutSaved, saved].sort((left, right) => (
+          right.spentOn.localeCompare(left.spentOn)
+          || String(right.createdAt || "").localeCompare(String(left.createdAt || ""))
+        ));
+      });
+      return saved;
     },
     async deleteExpense(id) {
-      await expenseApi.remove(id);
+      const deleted = await expenseApi.remove(id);
       setExpenses((current) => current.filter((expense) => expense.id !== id));
+      return deleted;
+    },
+    async restoreExpense(id) {
+      const restored = await expenseApi.restore(id);
+      setExpenses((current) => {
+        const withoutRestored = current.filter((item) => item.id !== restored.id);
+        if (!restored.spentOn.startsWith(month)) return withoutRestored;
+        return [...withoutRestored, restored].sort((left, right) => right.spentOn.localeCompare(left.spentOn));
+      });
+      return restored;
     },
     async saveBudgets(items) {
       const saved = await budgetApi.replace(month, items);
@@ -64,7 +83,7 @@ export function useExpenseManager(user = null) {
     async previousBudget() {
       return budgetApi.list(shiftMonth(month, -1));
     },
-  }), [load, month]);
+  }), [month]);
 
   return {
     month,

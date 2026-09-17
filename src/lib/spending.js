@@ -106,7 +106,7 @@ export function budgetAmountMap(budgets) {
   return Object.fromEntries((budgets || []).map((item) => [item.category, Number(item.amount)]));
 }
 
-export function groupExpenses(expenses) {
+export function groupExpenses(expenses, order = "NEWEST") {
   const groups = new Map();
   expenses.forEach((expense) => {
     if (!groups.has(expense.spentOn)) groups.set(expense.spentOn, []);
@@ -117,6 +117,7 @@ export function groupExpenses(expenses) {
     date,
     items,
     total: items.reduce((sum, item) => sum + Number(item.amount), 0),
-  })).sort((left, right) => right.date.localeCompare(left.date));
+  })).sort((left, right) => order === "OLDEST"
+    ? left.date.localeCompare(right.date)
+    : right.date.localeCompare(left.date));
 }
-
