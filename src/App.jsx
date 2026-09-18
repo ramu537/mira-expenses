@@ -194,7 +194,7 @@ export default function App() {
   }
 
   let content;
-  if (!manager.ready && manager.loading) {
+  if (!manager.ready && !manager.loadError) {
     content = <LoadingState />;
   } else if (!manager.ready && manager.loadError) {
     content = <ErrorState message={manager.loadError} onRetry={manager.retry} />;
@@ -208,6 +208,10 @@ export default function App() {
               month={manager.month}
               expenses={manager.expenses}
               budgets={manager.budgets}
+              analysis={manager.analysis}
+              analysisError={manager.analysisError}
+              analysisLoading={manager.analysisLoading || manager.loading}
+              onRetryAnalysis={manager.retryAnalysis}
               onAdd={openCreate}
               onEdit={openEdit}
             />

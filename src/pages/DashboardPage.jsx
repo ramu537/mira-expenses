@@ -1,8 +1,9 @@
-import { ArrowRight, CheckCircle2, Plus, ReceiptText, TrendingDown, TriangleAlert, WalletCards } from "lucide-react";
+import { ArrowRight, ReceiptText, TrendingDown, WalletCards } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import CategoryBreakdown from "../components/CategoryBreakdown";
 import EmptyState from "../components/EmptyState";
+import ExpenseAnalysisPanel, { ExpenseAnalysisHero } from "../components/ExpenseAnalysisPanel";
 import ExpenseRow from "../components/ExpenseRow";
 import SpendingTrend from "../components/SpendingTrend";
 import {
@@ -15,7 +16,9 @@ import {
   monthLabel,
 } from "../lib/spending";
 
-export default function DashboardPage({ month, expenses, budgets, onAdd, onEdit }) {
+export default function DashboardPage({
+  month, expenses, budgets, analysis, analysisError, analysisLoading, onRetryAnalysis, onAdd, onEdit,
+}) {
   const summary = useMemo(() => buildSummary(expenses), [expenses]);
   const dailyData = useMemo(() => buildDailyData(expenses, month), [expenses, month]);
   const categoryData = useMemo(() => buildCategoryData(expenses), [expenses]);
@@ -24,14 +27,6 @@ export default function DashboardPage({ month, expenses, budgets, onAdd, onEdit 
   const used = budgetTotal ? Math.round((summary.total / budgetTotal) * 100) : 0;
   const paceTone = !budgetTotal ? "neutral" : used > 100 ? "danger" : used > 80 ? "warning" : "positive";
   const topCategory = summary.topCategory ? categories[summary.topCategory].label : "No activity";
-  const categoryBudgets = budgetAmountMap(budgets);
-  const overspent = Object.entries(categoryBudgets)
-    .map(([key, limit]) => ({ key, limit, spent: summary.byCategory[key] || 0 }))
-    .filter((item) => item.limit > 0 && item.spent > item.limit)
-    .sort((left, right) => (right.spent - right.limit) - (left.spent - left.limit));
-  const largestExpense = expenses.reduce((largest, item) => (
-    !largest || Number(item.amount) > Number(largest.amount) ? item : largest
-  ), null);
 
   return (
     <div className="page-stack">
@@ -72,9 +67,12 @@ export default function DashboardPage({ month, expenses, budgets, onAdd, onEdit 
           </div>
         </div>
 
-        <button className="button button--light hero-add" type="button" onClick={onAdd}>
-          <Plus size={18} /> Add expense
-        </button>
+        <ExpenseAnalysisHero
+          analysis={analysis}
+          loading={analysisLoading}
+          error={analysisError}
+          onRetry={onRetryAnalysis}
+        />
       </section>
 
       <section className="metric-grid" aria-label="Monthly summary">
@@ -103,29 +101,7 @@ export default function DashboardPage({ month, expenses, budgets, onAdd, onEdit 
         <CategoryBreakdown data={categoryData} total={summary.total} />
       </section>
 
-      {(expenses.length > 0 || budgetTotal > 0) && (
-        <section className={`attention-panel ${overspent.length ? "attention-panel--warning" : ""}`}>
-          <span className="attention-panel__icon">
-            {overspent.length ? <TriangleAlert size={19} /> : <CheckCircle2 size={19} />}
-          </span>
-          <div>
-            <span className="eyebrow">{overspent.length ? "Needs attention" : "This month"}</span>
-            <strong>
-              {overspent.length
-                ? `${categories[overspent[0].key]?.label || overspent[0].key} is ${currency.format(overspent[0].spent - overspent[0].limit)} over budget`
-                : budgetTotal ? "Your tracked categories are within budget" : "Your spending record is up to date"}
-            </strong>
-            <small>
-              {overspent.length > 1
-                ? `${overspent.length - 1} more categories also need review.`
-                : largestExpense
-                  ? `Largest entry: ${largestExpense.title} at ${currency.format(largestExpense.amount)}.`
-                  : "Keep capturing expenses to make this view useful."}
-            </small>
-          </div>
-          <Link to={overspent.length ? "/budget" : "/entries"}>Review <ArrowRight size={15} /></Link>
-        </section>
-      )}
+      <ExpenseAnalysisPanel analysis={analysis} loading={analysisLoading} error={analysisError} onRetry={onRetryAnalysis} />
 
       <section className="panel recent-panel">
         <header className="panel-header">
