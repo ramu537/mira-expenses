@@ -1,4 +1,4 @@
-import { BarChart3, List, LogOut, Plus, Sparkles, Target } from "lucide-react";
+import { BarChart3, Camera, List, LogOut, Plus, Receipt, Search, Sparkles, Target } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import MonthControl from "./MonthControl";
 
@@ -37,7 +37,7 @@ function Navigation({ mobile = false }) {
   );
 }
 
-export default function AppShell({ month, onMonthChange, onAdd, onOpenIntelligence, loading, user, onLogout, children }) {
+export default function AppShell({ month, onMonthChange, onAdd, onOpenIntelligence, onOpenAiCapture, onOpenAiSearch, loading, user, onLogout, children }) {
   const initialLetter = (user?.displayName || user?.email || "U").charAt(0).toUpperCase();
 
   return (
@@ -88,7 +88,11 @@ export default function AppShell({ month, onMonthChange, onAdd, onOpenIntelligen
           <div className="topbar-brand"><Brand /></div>
           <MonthControl month={month} onChange={onMonthChange} />
           <div className="topbar-actions">
+            <button className="icon-button" type="button" onClick={onOpenAiSearch} aria-label="Search memory" title="AI Vector Memory Search (Ctrl+K)"><Search size={18} /></button>
             <button className="icon-button topbar-intelligence" type="button" onClick={onOpenIntelligence} aria-label="Open expense intelligence" title="Expense intelligence"><Sparkles size={18} /></button>
+            <button className="button button--ghost" type="button" onClick={onOpenAiCapture} aria-label="Scan receipt or AI expense" title="Scan receipt or AI expense" style={{ gap: "0.375rem", display: "inline-flex", alignItems: "center" }}>
+              <Receipt size={17} /> <span>AI Scan</span>
+            </button>
             <button className="button button--primary topbar-add" type="button" onClick={onAdd}>
               <Plus size={18} strokeWidth={2.4} />
               <span>Add expense</span>
@@ -118,9 +122,14 @@ export default function AppShell({ month, onMonthChange, onAdd, onOpenIntelligen
         <main className="main-content">{children}</main>
         <Navigation mobile />
 
-        <button className="mobile-add" type="button" onClick={onAdd} aria-label="Add expense">
-          <Plus size={24} strokeWidth={2.4} />
-        </button>
+        <div style={{ position: "fixed", bottom: "1.25rem", right: "1.25rem", display: "flex", gap: "0.75rem", zIndex: 40 }} className="mobile-only-actions">
+          <button className="mobile-add" type="button" onClick={onOpenAiCapture} aria-label="Scan receipt" style={{ background: "var(--surface-raised)", color: "var(--accent-strong)", border: "1px solid var(--border-default)" }}>
+            <Receipt size={22} strokeWidth={2.2} />
+          </button>
+          <button className="mobile-add" type="button" onClick={onAdd} aria-label="Add expense">
+            <Plus size={24} strokeWidth={2.4} />
+          </button>
+        </div>
       </div>
     </div>
   );

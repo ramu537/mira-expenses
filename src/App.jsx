@@ -6,6 +6,8 @@ import { configureAccessTokenProvider } from "./api/client";
 import AppShell from "./components/AppShell";
 import ExpenseDialog from "./components/ExpenseDialog";
 import ExpenseIntelligenceDialog from "./components/ExpenseIntelligenceDialog";
+import AiExpenseCaptureModal from "./components/AiExpenseCaptureModal";
+import AiMemorySearchDialog from "./components/AiMemorySearchDialog";
 import LoginScreen from "./components/LoginScreen";
 import { ErrorState, LoadingState } from "./components/PageState";
 import Toast from "./components/Toast";
@@ -91,8 +93,21 @@ export default function App() {
   const [deletingId, setDeletingId] = useState(null);
   const [toast, setToast] = useState(null);
   const [intelligenceOpen, setIntelligenceOpen] = useState(false);
+  const [aiCaptureOpen, setAiCaptureOpen] = useState(false);
+  const [aiSearchOpen, setAiSearchOpen] = useState(false);
 
   const closeToast = useCallback(() => setToast(null), []);
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setAiSearchOpen((prev) => !prev);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   function openCreate() {
     setEditingExpense(null);
@@ -253,6 +268,8 @@ export default function App() {
         onMonthChange={manager.setMonth}
         onAdd={openCreate}
         onOpenIntelligence={() => setIntelligenceOpen(true)}
+        onOpenAiCapture={() => setAiCaptureOpen(true)}
+        onOpenAiSearch={() => setAiSearchOpen(true)}
         loading={manager.loading}
         user={user}
         onLogout={logout}
@@ -268,6 +285,24 @@ export default function App() {
         recentExpenses={manager.expenses}
         onClose={closeDialog}
         onSave={saveExpense}
+      />
+      <AiExpenseCaptureModal
+        open={aiCaptureOpen}
+        initialDate={`${manager.month}-01`}
+        onClose={() => setAiCaptureOpen(false)}
+        onSuccess={(msg) => {
+          manager.retry();
+          setToast({ tone: "success", message: msg });
+        }}
+      />
+      <AiMemorySearchDialog
+        open={aiSearchOpen}
+        onClose={() => setAiSearchOpen(false)}
+        onSelectDate={(date) => {
+          if (date && date.length >= 7) {
+            manager.setMonth(date.slice(0, 7));
+          }
+        }}
       />
       <Toast toast={toast} onClose={closeToast} />
     </>
