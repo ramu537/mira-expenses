@@ -46,14 +46,13 @@ export function useExpenseManager(user = null) {
     }
   }, [user, month, view]);
 
-  const refreshAnalysis = useCallback(async () => {
+  const loadAnalysis = useCallback(async (regenerateIntelligence) => {
     if (!user || activeView.current !== view) return null;
     const sequence = ++analysisSequence.current;
     setAnalysisLoading(true);
-    setAnalysis(null);
     setAnalysisError("");
     try {
-      const next = await expenseApi.analyze(month);
+      const next = await expenseApi.analyze(month, {}, regenerateIntelligence);
       if (sequence !== analysisSequence.current || activeView.current !== view) return null;
       setAnalysis(next);
       setAnalysisError("");
@@ -67,6 +66,9 @@ export function useExpenseManager(user = null) {
     }
   }, [month, user, view]);
 
+  const refreshAnalysis = useCallback(() => loadAnalysis(true), [loadAnalysis]);
+  const pollAnalysis = useCallback(() => loadAnalysis(false), [loadAnalysis]);
+
   useEffect(() => {
     if (user) {
       load();
@@ -76,12 +78,6 @@ export function useExpenseManager(user = null) {
       analysisSequence.current += 1;
     };
   }, [load, user]);
-
-  // Data changes refresh analysis separately so a failed read cannot turn a saved expense into a failed write.
-  useEffect(() => {
-    if (loadedMonth === view && user) void refreshAnalysis();
-    return () => { analysisSequence.current += 1; };
-  }, [expenses, budgets, loadedMonth, view, user, refreshAnalysis]);
 
   // Pick up expenses logged by an assistant when returning to the dashboard.
   useEffect(() => {
@@ -99,6 +95,8 @@ export function useExpenseManager(user = null) {
       const saved = editingId
         ? await expenseApi.update(editingId, expense)
         : await expenseApi.create(expense);
+      setAnalysis(null);
+      setAnalysisError("");
       if (activeView.current !== view) return saved;
       if (loadedMonth !== view) {
         void load();
@@ -118,6 +116,8 @@ export function useExpenseManager(user = null) {
     },
     async deleteExpense(id) {
       const deleted = await expenseApi.remove(id);
+      setAnalysis(null);
+      setAnalysisError("");
       if (activeView.current !== view) return deleted;
       if (loadedMonth !== view) {
         void load();
@@ -130,6 +130,8 @@ export function useExpenseManager(user = null) {
     },
     async restoreExpense(id) {
       const restored = await expenseApi.restore(id);
+      setAnalysis(null);
+      setAnalysisError("");
       if (activeView.current !== view) return restored;
       if (loadedMonth !== view) {
         void load();
@@ -146,6 +148,8 @@ export function useExpenseManager(user = null) {
     },
     async saveBudgets(items) {
       const saved = await budgetApi.replace(month, items);
+      setAnalysis(null);
+      setAnalysisError("");
       if (activeView.current !== view) return;
       if (loadedMonth !== view) {
         void load();
@@ -173,6 +177,7 @@ export function useExpenseManager(user = null) {
     loadError,
     retry: load,
     retryAnalysis: refreshAnalysis,
+    pollAnalysis,
     actions,
   };
 }

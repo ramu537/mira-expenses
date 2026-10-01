@@ -5,6 +5,7 @@ import { auth, googleProvider, signInWithPopup, signOut } from "./config/firebas
 import { configureAccessTokenProvider } from "./api/client";
 import AppShell from "./components/AppShell";
 import ExpenseDialog from "./components/ExpenseDialog";
+import ExpenseIntelligenceDialog from "./components/ExpenseIntelligenceDialog";
 import LoginScreen from "./components/LoginScreen";
 import { ErrorState, LoadingState } from "./components/PageState";
 import Toast from "./components/Toast";
@@ -89,6 +90,7 @@ export default function App() {
   const [budgetSaving, setBudgetSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [toast, setToast] = useState(null);
+  const [intelligenceOpen, setIntelligenceOpen] = useState(false);
 
   const closeToast = useCallback(() => setToast(null), []);
 
@@ -208,10 +210,6 @@ export default function App() {
               month={manager.month}
               expenses={manager.expenses}
               budgets={manager.budgets}
-              analysis={manager.analysis}
-              analysisError={manager.analysisError}
-              analysisLoading={manager.analysisLoading || manager.loading}
-              onRetryAnalysis={manager.retryAnalysis}
               onAdd={openCreate}
               onEdit={openEdit}
             />
@@ -254,12 +252,14 @@ export default function App() {
         month={manager.month}
         onMonthChange={manager.setMonth}
         onAdd={openCreate}
+        onOpenIntelligence={() => setIntelligenceOpen(true)}
         loading={manager.loading}
         user={user}
         onLogout={logout}
       >
         {content}
       </AppShell>
+      <ExpenseIntelligenceDialog open={intelligenceOpen} analysis={manager.analysis} loading={manager.analysisLoading} error={manager.analysisError} onRefresh={manager.retryAnalysis} onPoll={manager.pollAnalysis} onClose={() => setIntelligenceOpen(false)} />
       <ExpenseDialog
         open={dialogOpen}
         expense={editingExpense}

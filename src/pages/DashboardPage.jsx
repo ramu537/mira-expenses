@@ -3,7 +3,6 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import CategoryBreakdown from "../components/CategoryBreakdown";
 import EmptyState from "../components/EmptyState";
-import ExpenseAnalysisPanel, { ExpenseAnalysisHero } from "../components/ExpenseAnalysisPanel";
 import ExpenseRow from "../components/ExpenseRow";
 import SpendingTrend from "../components/SpendingTrend";
 import {
@@ -16,9 +15,7 @@ import {
   monthLabel,
 } from "../lib/spending";
 
-export default function DashboardPage({
-  month, expenses, budgets, analysis, analysisError, analysisLoading, onRetryAnalysis, onAdd, onEdit,
-}) {
+export default function DashboardPage({ month, expenses, budgets, onAdd, onEdit }) {
   const summary = useMemo(() => buildSummary(expenses), [expenses]);
   const dailyData = useMemo(() => buildDailyData(expenses, month), [expenses, month]);
   const categoryData = useMemo(() => buildCategoryData(expenses), [expenses]);
@@ -67,12 +64,6 @@ export default function DashboardPage({
           </div>
         </div>
 
-        <ExpenseAnalysisHero
-          analysis={analysis}
-          loading={analysisLoading}
-          error={analysisError}
-          onRetry={onRetryAnalysis}
-        />
       </section>
 
       <section className="metric-grid" aria-label="Monthly summary">
@@ -100,8 +91,6 @@ export default function DashboardPage({
         <SpendingTrend data={dailyData} />
         <CategoryBreakdown data={categoryData} total={summary.total} />
       </section>
-
-      <ExpenseAnalysisPanel analysis={analysis} loading={analysisLoading} error={analysisError} onRetry={onRetryAnalysis} />
 
       <section className="panel recent-panel">
         <header className="panel-header">

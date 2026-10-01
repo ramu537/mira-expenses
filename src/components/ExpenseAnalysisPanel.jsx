@@ -82,7 +82,7 @@ export default function ExpenseAnalysisPanel({ analysis, loading, error, onRetry
     <section className="panel analysis-panel" id="monthly-analysis">
       <header className="panel-header analysis-panel__header">
         <div>
-          <span className="eyebrow">Mira intelligence</span>
+          <span className="eyebrow">Calculated from your records</span>
           <h2>Monthly analysis</h2>
         </div>
         <span className={`analysis-status analysis-status--${statusTones[analysis.status] || "neutral"}`}>

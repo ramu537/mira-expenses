@@ -1,4 +1,4 @@
-import { BarChart3, List, LogOut, Plus, Target } from "lucide-react";
+import { BarChart3, List, LogOut, Plus, Sparkles, Target } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import MonthControl from "./MonthControl";
 
@@ -37,7 +37,7 @@ function Navigation({ mobile = false }) {
   );
 }
 
-export default function AppShell({ month, onMonthChange, onAdd, loading, user, onLogout, children }) {
+export default function AppShell({ month, onMonthChange, onAdd, onOpenIntelligence, loading, user, onLogout, children }) {
   const initialLetter = (user?.displayName || user?.email || "U").charAt(0).toUpperCase();
 
   return (
@@ -88,6 +88,7 @@ export default function AppShell({ month, onMonthChange, onAdd, loading, user, o
           <div className="topbar-brand"><Brand /></div>
           <MonthControl month={month} onChange={onMonthChange} />
           <div className="topbar-actions">
+            <button className="icon-button topbar-intelligence" type="button" onClick={onOpenIntelligence} aria-label="Open expense intelligence" title="Expense intelligence"><Sparkles size={18} /></button>
             <button className="button button--primary topbar-add" type="button" onClick={onAdd}>
               <Plus size={18} strokeWidth={2.4} />
               <span>Add expense</span>
@@ -124,4 +125,3 @@ export default function AppShell({ month, onMonthChange, onAdd, loading, user, o
     </div>
   );
 }
-
