@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./styles.css";
 import "./refinement.css";
+import "./expense-ui.css";
 import "./lib/theme";
 
 createRoot(document.getElementById("root")).render(

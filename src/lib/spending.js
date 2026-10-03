@@ -12,7 +12,8 @@ export const categories = {
 export const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
-  maximumFractionDigits: 0,
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
 });
 
 export const compactCurrency = new Intl.NumberFormat("en-IN", {
@@ -66,11 +67,13 @@ export function readableDate(date, includeYear = false) {
 }
 
 export function buildSummary(expenses) {
-  const total = expenses.reduce((sum, item) => sum + Number(item.amount), 0);
-  const byCategory = expenses.reduce((result, item) => {
-    result[item.category] = (result[item.category] || 0) + Number(item.amount);
+  // Sum stored two-decimal amounts in paise so 0.10 + 0.20 is exactly 0.30.
+  const total = expenses.reduce((sum, item) => sum + Math.round(Number(item.amount) * 100), 0) / 100;
+  const categoryCents = expenses.reduce((result, item) => {
+    result[item.category] = (result[item.category] || 0) + Math.round(Number(item.amount) * 100);
     return result;
   }, {});
+  const byCategory = Object.fromEntries(Object.entries(categoryCents).map(([key, cents]) => [key, cents / 100]));
   const topCategory = Object.entries(byCategory).sort((left, right) => right[1] - left[1])[0]?.[0] || null;
   return {
     total,
@@ -83,14 +86,14 @@ export function buildSummary(expenses) {
 
 export function buildDailyData(expenses, month) {
   const dailyTotals = expenses.reduce((result, item) => {
-    result[item.spentOn] = (result[item.spentOn] || 0) + Number(item.amount);
+    result[item.spentOn] = (result[item.spentOn] || 0) + Math.round(Number(item.amount) * 100);
     return result;
   }, {});
   const dayCount = Number(monthBounds(month).end.slice(-2));
   return Array.from({ length: dayCount }, (_, index) => {
     const day = index + 1;
     const date = `${month}-${String(day).padStart(2, "0")}`;
-    return { day, date, amount: dailyTotals[date] || 0 };
+    return { day, date, amount: (dailyTotals[date] || 0) / 100 };
   });
 }
 
@@ -116,7 +119,7 @@ export function groupExpenses(expenses, order = "NEWEST") {
   return Array.from(groups, ([date, items]) => ({
     date,
     items,
-    total: items.reduce((sum, item) => sum + Number(item.amount), 0),
+    total: items.reduce((sum, item) => sum + Math.round(Number(item.amount) * 100), 0) / 100,
   })).sort((left, right) => order === "OLDEST"
     ? left.date.localeCompare(right.date)
     : right.date.localeCompare(left.date));

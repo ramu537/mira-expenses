@@ -1,5 +1,6 @@
 import ThemeControl from "./ThemeControl";
-import { BarChart3, Camera, List, LogOut, Plus, Receipt, Search, Sparkles, Target } from "lucide-react";
+import { BarChart3, List, LogOut, MoreHorizontal, Plus, Search, Sparkles, Target } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import MonthControl from "./MonthControl";
 
@@ -40,6 +41,17 @@ function Navigation({ mobile = false }) {
 
 export default function AppShell({ month, onMonthChange, onAdd, onOpenIntelligence, onOpenAiCapture, onOpenAiSearch, loading, user, onLogout, children }) {
   const initialLetter = (user?.displayName || user?.email || "U").charAt(0).toUpperCase();
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const toolsRoot = useRef(null);
+  const toolsTrigger = useRef(null);
+  const toolsId = useId();
+  useEffect(() => {
+    if (!toolsOpen) return;
+    const outside = (event) => { if (!toolsRoot.current?.contains(event.target)) setToolsOpen(false); };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [toolsOpen]);
+  function openTool(action) { toolsTrigger.current?.focus(); setToolsOpen(false); action(); }
 
   return (
     <div className="app-frame">
@@ -90,15 +102,17 @@ export default function AppShell({ month, onMonthChange, onAdd, onOpenIntelligen
           <MonthControl month={month} onChange={onMonthChange} />
           <div className="topbar-actions">
             <ThemeControl />
-            <button className="icon-button" type="button" onClick={onOpenAiSearch} aria-label="Search memory" title="AI Vector Memory Search (Ctrl+K)"><Search size={18} /></button>
-            <button className="icon-button topbar-intelligence" type="button" onClick={onOpenIntelligence} aria-label="Open expense intelligence" title="Expense intelligence"><Sparkles size={18} /></button>
-            <button className="button button--ghost topbar-capture" type="button" onClick={onOpenAiCapture} aria-label="Scan receipt or AI expense" title="Scan receipt or AI expense">
-              <Receipt size={17} /> <span>AI Scan</span>
+            <button className="button button--secondary topbar-capture" type="button" onClick={onOpenAiCapture} title="Log from text or a receipt">
+              <Sparkles size={17} /> <span>Log with AI</span>
             </button>
-            <button className="button button--primary topbar-add" type="button" onClick={onAdd}>
+            <button className="button button--primary topbar-add" type="button" onClick={onAdd} aria-label="Add expense">
               <Plus size={18} strokeWidth={2.4} />
-              <span>Add expense</span>
+              <span className="topbar-add__full">Add expense</span><span className="topbar-add__short" aria-hidden="true">Add</span>
             </button>
+            <div className="expense-toolbar-tools" ref={toolsRoot} onKeyDown={(event) => { if (event.key === "Escape" && toolsOpen) { event.preventDefault(); setToolsOpen(false); toolsTrigger.current?.focus(); } }}>
+              <button ref={toolsTrigger} className="icon-button" type="button" aria-label="More expense tools" aria-expanded={toolsOpen} aria-controls={toolsId} onClick={() => setToolsOpen((value) => !value)}><MoreHorizontal size={20} /></button>
+              {toolsOpen && <div id={toolsId} className="expense-toolbar-tools__panel" role="group" aria-label="Expense tools"><button type="button" onClick={() => openTool(onOpenIntelligence)}><Sparkles size={17} /> Spending insights</button><button type="button" onClick={() => openTool(onOpenAiSearch)}><Search size={17} /> Search memory <small>Ctrl/⌘ K</small></button><button type="button" onClick={() => openTool(onLogout)}><LogOut size={17} /> Sign out</button></div>}
+            </div>
             {user && (
               <div className="topbar-user">
                 {user.photoURL ? (
@@ -106,15 +120,6 @@ export default function AppShell({ month, onMonthChange, onAdd, onOpenIntelligen
                 ) : (
                   <div className="user-avatar user-avatar--fallback user-avatar--sm">{initialLetter}</div>
                 )}
-                <button
-                  type="button"
-                  className="topbar-logout-btn"
-                  onClick={onLogout}
-                  title="Sign out"
-                  aria-label="Sign out"
-                >
-                  <LogOut size={16} />
-                </button>
               </div>
             )}
           </div>
@@ -124,14 +129,6 @@ export default function AppShell({ month, onMonthChange, onAdd, onOpenIntelligen
         <main className="main-content">{children}</main>
         <Navigation mobile />
 
-        <div className="mobile-only-actions">
-          <button className="mobile-add mobile-capture" type="button" onClick={onOpenAiCapture} aria-label="Scan receipt">
-            <Receipt size={22} strokeWidth={2.2} />
-          </button>
-          <button className="mobile-add" type="button" onClick={onAdd} aria-label="Add expense">
-            <Plus size={24} strokeWidth={2.4} />
-          </button>
-        </div>
       </div>
     </div>
   );

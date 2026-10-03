@@ -1,5 +1,5 @@
 import FloatingAssistant from "./components/FloatingAssistant";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, googleProvider, signInWithPopup, signOut } from "./config/firebase";
@@ -16,6 +16,7 @@ import { useExpenseManager } from "./hooks/useExpenseManager";
 import BudgetPage from "./pages/BudgetPage";
 import DashboardPage from "./pages/DashboardPage";
 import EntriesPage from "./pages/EntriesPage";
+import { defaultDateForMonth } from "./lib/spending";
 
 function loginMessage(error) {
   const code = error?.code || "";
@@ -96,6 +97,34 @@ export default function App() {
   const [intelligenceOpen, setIntelligenceOpen] = useState(false);
   const [aiCaptureOpen, setAiCaptureOpen] = useState(false);
   const [aiSearchOpen, setAiSearchOpen] = useState(false);
+  const [budgetDrafts, setBudgetDrafts] = useState({});
+  const expenseWrite = useRef(false);
+  const budgetWrite = useRef(false);
+  const deleteWrite = useRef(false);
+  const savedInDialog = useRef(null);
+  const activeUser = useRef(user?.uid);
+  activeUser.current = user?.uid;
+
+  useEffect(() => {
+    setBudgetDrafts({}); setDialogOpen(false); setEditingExpense(null);
+    setAiCaptureOpen(false); setAiSearchOpen(false); setIntelligenceOpen(false); setToast(null);
+    savedInDialog.current = null;
+  }, [user?.uid]);
+  useEffect(() => {
+    if (!Object.keys(budgetDrafts).length) return;
+    function beforeUnload(event) { event.preventDefault(); event.returnValue = ""; }
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, [budgetDrafts]);
+
+  function changeBudgetDraft(month, draft) {
+    setBudgetDrafts((current) => {
+      const next = { ...current };
+      if (draft) next[month] = draft;
+      else delete next[month];
+      return next;
+    });
+  }
 
   const closeToast = useCallback(() => setToast(null), []);
 
@@ -103,6 +132,7 @@ export default function App() {
     function handleKeyDown(e) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
+        if (document.querySelector("dialog[open]")) return;
         setAiSearchOpen((prev) => !prev);
       }
     }
@@ -111,25 +141,34 @@ export default function App() {
   }, []);
 
   function openCreate() {
+    savedInDialog.current = null;
     setEditingExpense(null);
     setDialogOpen(true);
   }
 
   function openEdit(expense) {
+    savedInDialog.current = null;
     setEditingExpense(expense);
     setDialogOpen(true);
   }
 
   function closeDialog() {
-    if (saving) return;
+    if (saving || expenseWrite.current) return;
     setDialogOpen(false);
     setEditingExpense(null);
+    if (savedInDialog.current && savedInDialog.current.slice(0, 7) !== manager.month) manager.setMonth(savedInDialog.current.slice(0, 7));
+    savedInDialog.current = null;
   }
 
-  async function saveExpense(expense) {
+  async function saveExpense(expense, { keepOpen = false } = {}) {
+    if (expenseWrite.current) throw new Error("An expense is already being saved.");
+    expenseWrite.current = true;
+    const owner = user.uid;
     setSaving(true);
     try {
       const saved = await manager.actions.saveExpense(expense, editingExpense?.id);
+      if (activeUser.current !== owner) return saved;
+      savedInDialog.current = saved.spentOn;
       setToast({
         tone: saved.possibleDuplicate ? "warning" : "success",
         message: editingExpense
@@ -138,60 +177,79 @@ export default function App() {
             ? `${saved.title} saved. This may match an existing expense.`
             : `${saved.title} · ₹${Number(saved.amount).toLocaleString("en-IN")} saved.`,
       });
-      setDialogOpen(false);
-      setEditingExpense(null);
-    } catch (error) {
-      setToast({ tone: "error", message: error.message });
+      if (!keepOpen) {
+        setDialogOpen(false);
+        setEditingExpense(null);
+        if (saved.spentOn.slice(0, 7) !== manager.month) manager.setMonth(saved.spentOn.slice(0, 7));
+        savedInDialog.current = null;
+      }
+      return saved;
     } finally {
+      expenseWrite.current = false;
       setSaving(false);
     }
   }
 
   async function deleteExpense(id) {
+    if (deleteWrite.current) return false;
+    deleteWrite.current = true;
+    const owner = user.uid;
     setDeletingId(id);
     try {
       const deleted = await manager.actions.deleteExpense(id);
+      if (activeUser.current !== owner) return true;
       setToast({
         tone: "success",
         message: `${deleted.title} deleted.`,
         actionLabel: "Undo",
         action: async () => {
+          if (activeUser.current !== owner) return;
           try {
-            await manager.actions.restoreExpense(deleted.id);
+            const restored = await manager.actions.restoreExpense(deleted.id);
+            if (activeUser.current !== owner) return;
+            if (restored.spentOn.slice(0, 7) !== manager.month) manager.setMonth(restored.spentOn.slice(0, 7));
             setToast({ tone: "success", message: `${deleted.title} restored.` });
           } catch (error) {
-            setToast({ tone: "error", message: error.message });
+            if (activeUser.current === owner) setToast({ tone: "error", message: error.message });
           }
         },
       });
       return true;
     } catch (error) {
-      setToast({ tone: "error", message: error.message });
+      if (activeUser.current === owner) setToast({ tone: "error", message: error.message });
       return false;
     } finally {
+      deleteWrite.current = false;
       setDeletingId(null);
     }
   }
 
   async function saveBudgets(items) {
+    if (budgetWrite.current) throw new Error("Your budget is already being saved.");
+    budgetWrite.current = true;
+    const submittedMonth = manager.month;
+    const submittedDraft = budgetDrafts[submittedMonth];
+    const owner = user.uid;
     setBudgetSaving(true);
     try {
-      await manager.actions.saveBudgets(items);
+      const saved = await manager.actions.saveBudgets(items);
+      if (activeUser.current !== owner) return saved;
+      setBudgetDrafts((current) => {
+        if (current[submittedMonth] !== submittedDraft) return current;
+        const next = { ...current };
+        delete next[submittedMonth];
+        return next;
+      });
       setToast({ tone: "success", message: "Monthly budget saved." });
-    } catch (error) {
-      setToast({ tone: "error", message: error.message });
+      return saved;
     } finally {
+      budgetWrite.current = false;
       setBudgetSaving(false);
     }
   }
 
   async function copyPreviousBudget() {
-    try {
-      return await manager.actions.previousBudget();
-    } catch (error) {
-      setToast({ tone: "error", message: error.message });
-      return null;
-    }
+    return manager.actions.previousBudget();
   }
 
   if (!authReady) {
@@ -223,11 +281,15 @@ export default function App() {
           path="/"
           element={(
             <DashboardPage
+              key={manager.month}
               month={manager.month}
               expenses={manager.expenses}
               budgets={manager.budgets}
               onAdd={openCreate}
               onEdit={openEdit}
+              onOpenAiCapture={() => setAiCaptureOpen(true)}
+              onDelete={deleteExpense}
+              deletingId={deletingId}
             />
           )}
         />
@@ -235,6 +297,7 @@ export default function App() {
           path="/entries"
           element={(
             <EntriesPage
+              key={`${user.uid}:${manager.month}`}
               month={manager.month}
               expenses={manager.expenses}
               deletingId={deletingId}
@@ -248,10 +311,13 @@ export default function App() {
           path="/budget"
           element={(
             <BudgetPage
+              key={`${user.uid}:${manager.month}`}
               month={manager.month}
               expenses={manager.expenses}
               budgets={manager.budgets}
               saving={budgetSaving}
+              draft={budgetDrafts[manager.month]}
+              onDraftChange={(draft) => changeBudgetDraft(manager.month, draft)}
               onSave={saveBudgets}
               onCopyPrevious={copyPreviousBudget}
             />
@@ -275,6 +341,7 @@ export default function App() {
         user={user}
         onLogout={logout}
       >
+        {manager.ready && manager.loadError && <div className="inline-notice expense-error expense-refresh-error" role="alert"><span>Could not refresh your records: {manager.loadError} Showing the last loaded data.</span><button className="button button--secondary" type="button" disabled={manager.loading} onClick={manager.retry}>Retry</button></div>}
         {content}
       </AppShell>
       <ExpenseIntelligenceDialog userId={user.uid} date={manager.month + "-01"} contextKey={`${manager.month}:${manager.revision}`} onScenario={manager.analyzeScenario} open={intelligenceOpen} analysis={manager.analysis} loading={manager.analysisLoading} error={manager.analysisError} onRefresh={manager.retryAnalysis} onPoll={manager.pollAnalysis} onClose={() => setIntelligenceOpen(false)} />
@@ -288,8 +355,9 @@ export default function App() {
         onSave={saveExpense}
       />
       <AiExpenseCaptureModal
+        key={user.uid}
         open={aiCaptureOpen}
-        initialDate={`${manager.month}-01`}
+        initialDate={defaultDateForMonth(manager.month)}
         onClose={() => setAiCaptureOpen(false)}
         onSuccess={(msg) => {
           manager.retry();

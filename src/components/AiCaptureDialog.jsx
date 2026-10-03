@@ -4,15 +4,26 @@ import { captureApi } from "../api/captures";
 import { acceptedCaptureImages, capturePhase, captureToday, validateCaptureImages } from "../lib/captureUi";
 import IntegrationDialog from "./IntegrationDialog";
 
-export default function AiCaptureDialog({ open, onClose, onSuccess, initialDate, targetDomain, title, description, placeholder, label, imageLabel = "Add photos or screenshots", images = true, dated = false, task = false }) {
+export default function AiCaptureDialog({ open, onClose, onSuccess, initialDate, targetDomain, title, description, placeholder, label, examples = [], submitLabel = "Save with AI", imageLabel = "Add photos or screenshots", images = true, dated = false, task = false }) {
   const [text, setText] = useState(""), [date, setDate] = useState(initialDate || captureToday()), [dueDate, setDueDate] = useState("");
   const [files, setFiles] = useState([]), [previews, setPreviews] = useState([]);
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [saved, setSaved] = useState(null), [organization, setOrganization] = useState(null);
   const [pollPaused, setPollPaused] = useState(false);
   const input = useRef(null), writing = useRef(false), startedAt = useRef(0), sequence = useRef(0), notified = useRef(null);
   const notify = useRef(onSuccess);
+  const textInput = useRef(null);
+  useEffect(() => {
+    if (!open || saved) return;
+    const frame = window.requestAnimationFrame(() => textInput.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, saved]);
   useEffect(() => { notify.current = onSuccess; }, [onSuccess]);
-  useEffect(() => { if (open && !saved) { setDate(initialDate || captureToday()); setError(""); } }, [open, initialDate, targetDomain]);
+  useEffect(() => {
+    if (open && !saved) {
+      if (!text.trim() && !files.length) setDate(initialDate || captureToday());
+      setError("");
+    }
+  }, [open, initialDate, targetDomain]);
   useEffect(() => {
     const urls = files.map(file => URL.createObjectURL(file)); setPreviews(urls);
     return () => urls.forEach(url => URL.revokeObjectURL(url));
@@ -95,7 +106,8 @@ export default function AiCaptureDialog({ open, onClose, onSuccess, initialDate,
         <button className="button button--primary" type="button" disabled={busy} onClick={onClose}>{phase === "complete" ? "Done" : "Keep going"}</button>
       </div>
     </div> : <form className="capture-form" onSubmit={submit}>
-      <label className="integration-field"><span>{label || "Describe it in your own words"}</span><textarea className="text-input" rows={4} maxLength={4000} placeholder={placeholder} value={text} onChange={event => { setText(event.target.value); setError(""); }} disabled={busy} /></label>
+      <label className="integration-field"><span>{label || "Describe it in your own words"}</span><textarea ref={textInput} className="text-input" rows={3} maxLength={4000} placeholder={placeholder} value={text} onChange={event => { setText(event.target.value); setError(""); }} disabled={busy} /></label>
+      {examples.length > 0 && <div className="expense-ai-examples" aria-label="Example expense descriptions"><span>Try an example, then edit it</span><div>{examples.map(example => <button key={example} type="button" disabled={busy} onClick={() => { setText(example); setError(""); textInput.current?.focus(); }}>{example}</button>)}</div></div>}
       <div className="capture-date-row">{dated && <label className="integration-field"><span>Date</span><input className="text-input" type="date" required value={date} onChange={event => setDate(event.target.value)} disabled={busy} /></label>}
         {task && <label className="integration-field"><span>Due date <small>optional</small></span><input className="text-input" type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} disabled={busy} /></label>}</div>
       {images && <section className="capture-attachments" aria-label="Image attachments"><input ref={input} className="sr-only" tabIndex={-1} type="file" accept={acceptedCaptureImages.join(",")} multiple onChange={choose} disabled={busy} />
@@ -103,7 +115,7 @@ export default function AiCaptureDialog({ open, onClose, onSuccess, initialDate,
         {files.length < 3 && <button className="capture-upload" type="button" disabled={busy} onClick={() => input.current?.click()}><Camera size={19} /><span>{imageLabel}<small>JPG, PNG or WebP · up to 3 images · 5 MB each</small></span></button>}
       </section>}
       {error && <p className="integration-error" role="alert">{error}</p>}
-      <footer className="capture-footer"><p>AI organizes your input. Estimates remain labelled and you can edit the saved records.</p><button className="button button--primary" type="submit" disabled={busy || !text.trim() && !files.length}>{busy ? <LoaderCircle className="spin" size={16} /> : <Sparkles size={16} />}{busy ? "Saving…" : "Save with AI"}</button></footer>
+      <footer className="capture-footer"><p>AI organizes your input. Estimates remain labelled and you can edit the saved records.</p><button className="button button--primary" type="submit" disabled={busy || !text.trim() && !files.length}>{busy ? <LoaderCircle className="spin" size={16} /> : <Sparkles size={16} />}{busy ? "Saving…" : submitLabel}</button></footer>
     </form>}
   </IntegrationDialog>;
 }

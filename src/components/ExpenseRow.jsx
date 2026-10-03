@@ -1,11 +1,12 @@
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { categories, currency } from "../lib/spending";
+import { categories, currency, readableDate } from "../lib/spending";
 import CategoryIcon from "./CategoryIcon";
 
-export default function ExpenseRow({ expense, onEdit, onDelete, compact = false }) {
+export default function ExpenseRow({ expense, onEdit, onDelete, compact = false, showDate = false }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const triggerRef = useRef(null);
   const category = categories[expense.category] || categories.OTHER;
 
   useEffect(() => {
@@ -24,15 +25,18 @@ export default function ExpenseRow({ expense, onEdit, onDelete, compact = false 
         <strong>{expense.title}</strong>
         <small>
           {category.label}
+          {showDate && ` · ${readableDate(expense.spentOn)}`}
           {expense.source === "MCP" && <span className="source-badge">Logged by assistant</span>}
+          {expense.source === "AI_CAPTURE" && <span className="source-badge">AI capture</span>}
           {expense.note ? ` · ${expense.note}` : ""}
         </small>
       </button>
       <strong className="expense-row__amount">−{currency.format(expense.amount)}</strong>
       {!compact && (
-        <div className="row-menu" ref={menuRef}>
+        <div className="row-menu" ref={menuRef} onKeyDown={(event) => { if (event.key === "Escape" && menuOpen) { event.preventDefault(); setMenuOpen(false); triggerRef.current?.focus(); } }}>
           <button
             className="icon-button"
+            ref={triggerRef}
             type="button"
             aria-label={`Actions for ${expense.title}`}
             aria-expanded={menuOpen}
@@ -42,10 +46,10 @@ export default function ExpenseRow({ expense, onEdit, onDelete, compact = false 
           </button>
           {menuOpen && (
             <div className="row-menu__popover">
-              <button type="button" onClick={() => { setMenuOpen(false); onEdit(expense); }}>
+              <button type="button" onClick={() => { triggerRef.current?.focus(); setMenuOpen(false); onEdit(expense); }}>
                 <Pencil size={16} /> Edit
               </button>
-              <button className="danger-action" type="button" onClick={() => { setMenuOpen(false); onDelete(expense); }}>
+              <button className="danger-action" type="button" onClick={() => { triggerRef.current?.focus(); setMenuOpen(false); onDelete(expense); }}>
                 <Trash2 size={16} /> Delete
               </button>
             </div>

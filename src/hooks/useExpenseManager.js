@@ -165,18 +165,19 @@ export function useExpenseManager(user = null) {
     },
     async saveBudgets(items) {
       const saved = await budgetApi.replace(month, items);
-      if (activeView.current !== view) return;
+      if (activeView.current !== view) return saved;
       analysisSequence.current++; setRevision(value => value + 1); setAnalysisLoading(false);
       setAnalysis(null);
       setAnalysisError("");
-      if (activeView.current !== view) return;
+      if (activeView.current !== view) return saved;
       if (loadedMonth !== view) {
         void load();
-        return;
+        return saved;
       }
       requestSequence.current += 1;
       setLoading(false);
       setBudgets(Array.isArray(saved) ? saved : []);
+      return saved;
     },
     async previousBudget() {
       return budgetApi.list(shiftMonth(month, -1));

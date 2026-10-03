@@ -15,6 +15,7 @@ export default function ConfirmDialog({ open, expense, busy, onCancel, onConfirm
     <dialog
       ref={dialogRef}
       className="dialog confirm-dialog"
+      aria-labelledby="delete-expense-title"
       onCancel={(event) => {
         event.preventDefault();
         if (!busy) onCancel();
@@ -28,8 +29,8 @@ export default function ConfirmDialog({ open, expense, busy, onCancel, onConfirm
           <X size={19} />
         </button>
         <span className="confirm-icon"><AlertTriangle size={22} /></span>
-        <h2>Delete this expense?</h2>
-        <p><strong>{expense?.title}</strong> will be permanently removed from this month.</p>
+        <h2 id="delete-expense-title">Delete this expense?</h2>
+        <p><strong>{expense?.title}</strong> will be removed from your expenses. You can undo this using the message that appears after deleting.</p>
         <div className="dialog-actions">
           <button className="button button--ghost" type="button" onClick={onCancel} disabled={busy}>Keep it</button>
           <button className="button button--danger" type="button" onClick={onConfirm} disabled={busy}>

@@ -1,113 +1,46 @@
-import { ArrowRight, ReceiptText, TrendingDown, WalletCards } from "lucide-react";
-import { useMemo } from "react";
+import { ArrowRight, Plus, Sparkles, Target } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import CategoryBreakdown from "../components/CategoryBreakdown";
-import EmptyState from "../components/EmptyState";
+import ConfirmDialog from "../components/ConfirmDialog";
 import ExpenseRow from "../components/ExpenseRow";
 import SpendingTrend from "../components/SpendingTrend";
-import {
-  budgetAmountMap,
-  buildCategoryData,
-  buildDailyData,
-  buildSummary,
-  categories,
-  currency,
-  monthLabel,
-} from "../lib/spending";
+import { budgetAmountMap, buildCategoryData, buildDailyData, buildSummary, currency, monthLabel } from "../lib/spending";
 
-export default function DashboardPage({ month, expenses, budgets, onAdd, onEdit }) {
+export default function DashboardPage({ month, expenses, budgets, onAdd, onOpenAiCapture, onEdit, onDelete, deletingId }) {
   const summary = useMemo(() => buildSummary(expenses), [expenses]);
   const dailyData = useMemo(() => buildDailyData(expenses, month), [expenses, month]);
   const categoryData = useMemo(() => buildCategoryData(expenses), [expenses]);
-  const budgetTotal = Object.values(budgetAmountMap(budgets)).reduce((sum, value) => sum + value, 0);
+  const budgetTotal = Object.values(budgetAmountMap(budgets)).reduce((sum, value) => sum + Math.round(value * 100), 0) / 100;
   const remaining = budgetTotal - summary.total;
-  const used = budgetTotal ? Math.round((summary.total / budgetTotal) * 100) : 0;
-  const paceTone = !budgetTotal ? "neutral" : used > 100 ? "danger" : used > 80 ? "warning" : "positive";
-  const topCategory = summary.topCategory ? categories[summary.topCategory].label : "No activity";
+  const used = budgetTotal ? Math.round(summary.total / budgetTotal * 100) : 0;
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   return (
-    <div className="page-stack">
-      <header className="page-heading">
-        <div>
-          <span className="eyebrow">Your money, clearly</span>
-          <h1>{monthLabel(month)} overview</h1>
-          <p>See the month’s direction, then act on what matters.</p>
-        </div>
+    <div className="page-stack expense-overview">
+      <header className="expense-page-heading">
+        <div><span className="eyebrow">Your spending</span><h1>{monthLabel(month)}</h1><p>Log a purchase. See where your money went.</p></div>
+        <Link className="button button--secondary" to="/budget"><Target size={18} /> {budgetTotal ? "Edit budget" : "Set budget"}</Link>
       </header>
-
-      <section className="spend-hero">
-        <div className="spend-hero__glow" aria-hidden="true" />
-        <div className="spend-hero__main">
-          <span className="hero-label">Spent this month</span>
-          <strong className="hero-amount">{currency.format(summary.total)}</strong>
-          <span className={`pace-badge pace-badge--${paceTone}`}>
-            <span />
-            {budgetTotal
-              ? remaining >= 0
-                ? `${currency.format(remaining)} left in your plan`
-                : `${currency.format(Math.abs(remaining))} over your plan`
-              : "Add a budget to see your pace"}
-          </span>
+      <section className="expense-summary" aria-label="Monthly spending and budget">
+        <div className="expense-summary__spent">
+          <span>Spent this month</span><strong>{currency.format(summary.total)}</strong>
+          <small>{summary.count ? `${summary.count} ${summary.count === 1 ? "expense" : "expenses"} · ${currency.format(summary.average)} average` : "No expenses recorded for this month yet"}</small>
         </div>
-
-        <div className="budget-pulse">
-          <div className="budget-pulse__header">
-            <span>Monthly budget</span>
-            <strong>{budgetTotal ? `${used}%` : "Not set"}</strong>
-          </div>
-          <div className="budget-pulse__track" aria-label={budgetTotal ? `${used}% of budget used` : "No budget set"}>
-            <span className={used > 100 ? "is-over" : ""} style={{ width: `${Math.min(used, 100)}%` }} />
-          </div>
-          <div className="budget-pulse__footer">
-            <span>{budgetTotal ? `${currency.format(summary.total)} of ${currency.format(budgetTotal)}` : "Give each category a comfortable limit."}</span>
-            <Link to="/budget">{budgetTotal ? "Review" : "Set budget"}<ArrowRight size={15} /></Link>
-          </div>
+        <div className="expense-summary__budget">
+          <div><span>Monthly budget</span><strong>{budgetTotal ? currency.format(budgetTotal) : "Not set"}</strong></div>
+          {budgetTotal > 0 ? <>
+            <div className={`expense-budget-track${used > 100 ? " is-over" : ""}`} role="progressbar" aria-label="Monthly budget used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(used, 100)} aria-valuetext={`${used}% used`}><span style={{ width: `${Math.min(used, 100)}%` }} /></div>
+            <div className="expense-summary__budget-footer"><span className={remaining < 0 ? "text-danger" : ""}>{currency.format(Math.abs(remaining))} {remaining < 0 ? "over budget" : "left in your budget"} · {used}% used</span><Link to="/budget">Review <ArrowRight size={16} /></Link></div>
+          </> : <><p>Set category limits here. Their total becomes your monthly budget.</p><Link className="text-link" to="/budget">Set your monthly budget <ArrowRight size={16} /></Link></>}
         </div>
-
       </section>
-
-      <section className="metric-grid" aria-label="Monthly summary">
-        <article className="metric-card">
-          <span className="metric-icon"><ReceiptText size={18} /></span>
-          <span>Transactions</span>
-          <strong>{summary.count}</strong>
-          <small>recorded this month</small>
-        </article>
-        <article className="metric-card">
-          <span className="metric-icon"><TrendingDown size={18} /></span>
-          <span>Average expense</span>
-          <strong>{currency.format(summary.average)}</strong>
-          <small>per transaction</small>
-        </article>
-        <article className="metric-card">
-          <span className="metric-icon"><WalletCards size={18} /></span>
-          <span>Top category</span>
-          <strong className="metric-card__text">{topCategory}</strong>
-          <small>{summary.topCategory ? currency.format(summary.byCategory[summary.topCategory]) : "nothing recorded yet"}</small>
-        </article>
+      <section className="panel expense-recent">
+        <header className="panel-header"><div><h2>{expenses.length ? "Recent expenses" : "Start with one expense"}</h2><p>{expenses.length ? "Select an entry to edit it." : "Use a quick form, or tell AI what you spent."}</p></div>{expenses.length > 0 && <Link className="text-link" to="/entries">View all <ArrowRight size={16} /></Link>}</header>
+        {expenses.length ? <div>{expenses.slice(0, 6).map((expense) => <ExpenseRow key={expense.id} expense={expense} showDate onEdit={onEdit} onDelete={setPendingDelete} />)}</div> : <div className="expense-start"><div><strong>Your purchases, all in one place.</strong><p>For example: “Paid ₹280 for lunch today.” No budget setup required to start.</p></div><div><button className="button button--primary" type="button" onClick={onAdd}><Plus size={18} /> Add first expense</button><button className="button button--secondary" type="button" onClick={onOpenAiCapture}><Sparkles size={18} /> Log with AI</button></div></div>}
       </section>
-
-      <section className="analytics-grid">
-        <SpendingTrend data={dailyData} />
-        <CategoryBreakdown data={categoryData} total={summary.total} />
-      </section>
-
-      <section className="panel recent-panel">
-        <header className="panel-header">
-          <div>
-            <span className="eyebrow">Latest activity</span>
-            <h2>Recent expenses</h2>
-          </div>
-          {expenses.length > 0 && <Link className="text-link" to="/entries">View all <ArrowRight size={16} /></Link>}
-        </header>
-        {expenses.length ? (
-          <div className="recent-list">
-            {expenses.slice(0, 5).map((expense) => (
-              <ExpenseRow key={expense.id} expense={expense} onEdit={onEdit} compact />
-            ))}
-          </div>
-        ) : <EmptyState onAdd={onAdd} />}
-      </section>
+      {expenses.length > 0 && <section className="analytics-grid"><SpendingTrend data={dailyData} /><CategoryBreakdown data={categoryData} total={summary.total} /></section>}
+      <ConfirmDialog open={Boolean(pendingDelete)} expense={pendingDelete} busy={Boolean(deletingId)} onCancel={() => setPendingDelete(null)} onConfirm={async () => { if (pendingDelete && await onDelete(pendingDelete.id)) setPendingDelete(null); }} />
     </div>
   );
 }

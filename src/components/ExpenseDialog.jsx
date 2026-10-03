@@ -1,258 +1,123 @@
-import { Check, ChevronDown, History, Sparkles, X } from "lucide-react";
+import { ChevronDown, History, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { categories, defaultDateForMonth } from "../lib/spending";
-import CategoryIcon from "./CategoryIcon";
+import { categories, currency, defaultDateForMonth } from "../lib/spending";
+import { moneyCents, validateExpense } from "../lib/expenseForms";
 
-function emptyForm(month) {
-  return {
-    title: "",
-    amount: "",
-    category: "FOOD",
-    spentOn: defaultDateForMonth(month),
-    note: "",
-  };
+function emptyForm(month, date) {
+  return { title: "", amount: "", category: "FOOD", spentOn: date || defaultDateForMonth(month), note: "" };
 }
-
-function normalized(value) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
+function normalized(value) { return value.trim().toLocaleLowerCase().replace(/\s+/g, " "); }
 function suggestedCategory(title, expenses) {
   const search = normalized(title);
   if (search.length < 2) return null;
-  const exact = expenses.find((item) => normalized(item.title) === search);
-  if (exact) return exact.category;
-  const partial = expenses.find((item) => {
-    const candidate = normalized(item.title);
-    return candidate.length > 2 && (candidate.includes(search) || search.includes(candidate));
-  });
-  return partial?.category || null;
+  return expenses.find((item) => normalized(item.title) === search)?.category || null;
 }
-
 function recentTemplates(expenses) {
   const seen = new Set();
   return expenses.filter((expense) => {
     const key = normalized(expense.title);
     if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
+    seen.add(key); return true;
   }).slice(0, 4);
 }
 
 export default function ExpenseDialog({ open, expense, month, busy, recentExpenses = [], onClose, onSave }) {
   const dialogRef = useRef(null);
   const amountRef = useRef(null);
+  const fieldRefs = useRef({});
+  const writing = useRef(false);
+  const restoreFocus = useRef(null);
   const [form, setForm] = useState(() => emptyForm(month));
   const [attempted, setAttempted] = useState(false);
   const [categoryTouched, setCategoryTouched] = useState(false);
   const [suggestion, setSuggestion] = useState(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState("");
   const templates = useMemo(() => recentTemplates(recentExpenses), [recentExpenses]);
+  const disabled = busy || submitting;
+  const errors = validateExpense(form);
 
   useEffect(() => {
     if (!open) return;
-    setForm(expense ? {
-      title: expense.title,
-      amount: String(expense.amount),
-      category: expense.category,
-      spentOn: expense.spentOn,
-      note: expense.note || "",
-    } : emptyForm(month));
-    setAttempted(false);
-    setCategoryTouched(Boolean(expense));
-    setSuggestion(null);
-    setDetailsOpen(Boolean(expense));
-    window.requestAnimationFrame(() => amountRef.current?.focus());
+    setForm(expense ? { title: expense.title, amount: String(expense.amount), category: expense.category, spentOn: expense.spentOn, note: expense.note || "" } : emptyForm(month));
+    setAttempted(false); setCategoryTouched(Boolean(expense)); setSuggestion(null); setError(""); setNotice("");
+    const frame = window.requestAnimationFrame(() => amountRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
   }, [expense, month, open]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
+    if (open && !dialog.open) { restoreFocus.current = document.activeElement; dialog.showModal(); }
+    if (!open && dialog.open) { dialog.close(); restoreFocus.current?.focus?.(); }
   }, [open]);
 
-  const valid = useMemo(() => (
-    form.title.trim().length > 0
-    && Number(form.amount) > 0
-    && Boolean(form.spentOn)
-    && Boolean(categories[form.category])
-  ), [form]);
-
   function update(field, value) {
-    setForm((current) => ({ ...current, [field]: value }));
-  }
-
-  function updateTitle(value) {
-    const inferred = suggestedCategory(value, recentExpenses);
-    setForm((current) => ({
-      ...current,
-      title: value,
-      category: !categoryTouched && inferred ? inferred : current.category,
-    }));
-    setSuggestion(!categoryTouched ? inferred : null);
-  }
-
-  function selectCategory(category) {
-    setCategoryTouched(true);
-    setSuggestion(null);
-    update("category", category);
+    setError(""); setNotice("");
+    if (field === "category") { setCategoryTouched(true); setSuggestion(null); }
+    const inferred = field === "title" && !categoryTouched ? suggestedCategory(value, recentExpenses) : null;
+    if (field === "title") setSuggestion(inferred);
+    setForm((current) => ({ ...current, [field]: value, ...(inferred ? { category: inferred } : {}) }));
   }
 
   function repeat(template) {
-    setForm((current) => ({
-      ...current,
-      title: template.title,
-      amount: String(template.amount),
-      category: template.category,
-      note: template.note || "",
-    }));
-    setCategoryTouched(true);
-    setSuggestion(null);
+    setForm((current) => ({ ...current, title: template.title, amount: String(template.amount), category: template.category, note: template.note || "" }));
+    setCategoryTouched(true); setSuggestion(null); setError(""); setNotice("");
     window.requestAnimationFrame(() => amountRef.current?.select());
   }
 
   async function submit(event) {
     event.preventDefault();
-    setAttempted(true);
-    if (!valid) return;
-    await onSave({
-      title: form.title.trim(),
-      amount: Number(form.amount),
-      category: form.category,
-      spentOn: form.spentOn,
-      note: form.note.trim(),
-    });
+    if (writing.current || disabled) return;
+    setAttempted(true); setError(""); setNotice("");
+    const firstInvalid = Object.keys(errors).find((key) => errors[key]);
+    if (firstInvalid) {
+      if (firstInvalid === "note") dialogRef.current.querySelector(".expense-details").open = true;
+      (firstInvalid === "amount" ? amountRef.current : fieldRefs.current[firstInvalid])?.focus(); return;
+    }
+    const keepOpen = !expense && event.nativeEvent.submitter?.value === "another";
+    writing.current = true; setSubmitting(true);
+    try {
+      const saved = await onSave({ title: form.title.trim(), amount: moneyCents(form.amount) / 100, category: form.category, spentOn: form.spentOn, note: form.note.trim() }, { keepOpen });
+      if (keepOpen) {
+        setForm(emptyForm(month, form.spentOn)); setAttempted(false); setCategoryTouched(false); setSuggestion(null);
+        setNotice(`${saved.title} saved${saved.possibleDuplicate ? " · possible duplicate" : ""}. Ready for the next expense.`);
+        window.requestAnimationFrame(() => amountRef.current?.focus());
+      }
+    } catch (err) {
+      setError(err.message || "Could not save. Your entry is still here; try again.");
+    } finally { writing.current = false; setSubmitting(false); }
+  }
+
+  function fieldError(key) {
+    return attempted && errors[key] ? <small className="field-error" id={`expense-error-${key}`}>{errors[key]}</small> : null;
+  }
+  function accessibility(key) {
+    return { "aria-invalid": attempted && Boolean(errors[key]), "aria-describedby": attempted && errors[key] ? `expense-error-${key}` : undefined };
   }
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="dialog expense-dialog"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onClose();
-      }}
-      onClick={(event) => {
-        if (event.target === dialogRef.current && !busy) onClose();
-      }}
-    >
+    <dialog ref={dialogRef} className="dialog expense-dialog" aria-labelledby="expense-form-title" onCancel={(event) => { event.preventDefault(); if (!disabled) onClose(); }} onClick={(event) => { if (event.target === dialogRef.current && !disabled) onClose(); }}>
       <form className="dialog-card expense-form" onSubmit={submit} noValidate>
-        <header className="dialog-header">
-          <div>
-            <span className="eyebrow">{expense ? "Update entry" : "Quick capture"}</span>
-            <h2>{expense ? "Edit expense" : "What did you spend?"}</h2>
-            <p>Amount and description first. Press Enter to save when you are done.</p>
-          </div>
-          <button className="icon-button" type="button" onClick={onClose} disabled={busy} aria-label="Close expense form">
-            <X size={20} />
-          </button>
-        </header>
-
+        <header className="dialog-header"><div><h2 id="expense-form-title">{expense ? "Edit expense" : "Add an expense"}</h2><p>A few details. You're done.</p></div><button className="icon-button" type="button" disabled={disabled} onClick={onClose} aria-label="Close expense form"><X size={20} /></button></header>
         <div className="form-body">
-          {!expense && templates.length > 0 && (
-            <section className="recent-captures" aria-label="Repeat a recent expense">
-              <span><History size={15} /> Repeat recent</span>
-              <div>
-                {templates.map((template) => (
-                  <button key={template.id} type="button" onClick={() => repeat(template)}>
-                    <span>{template.title}</span>
-                    <small>₹{Number(template.amount).toLocaleString("en-IN")}</small>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-
-          <div className="quick-fields">
-            <label className="field amount-input quick-amount">
-              <span>Amount</span>
-              <span className="input-affix">
-                <span aria-hidden="true">₹</span>
-                <input
-                  ref={amountRef}
-                  required
-                  type="number"
-                  inputMode="decimal"
-                  min="0.01"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={form.amount}
-                  onChange={(event) => update("amount", event.target.value)}
-                  aria-invalid={attempted && !(Number(form.amount) > 0)}
-                />
-              </span>
-              {attempted && !(Number(form.amount) > 0) && <small className="field-error">Enter an amount above zero.</small>}
-            </label>
-
-            <label className="field quick-description">
-              <span>What was it for?</span>
-              <input
-                required
-                maxLength="100"
-                placeholder="KFC dinner, electricity bill, metro…"
-                value={form.title}
-                onChange={(event) => updateTitle(event.target.value)}
-                aria-invalid={attempted && !form.title.trim()}
-              />
-              {attempted && !form.title.trim() && <small className="field-error">Add a clear description.</small>}
-            </label>
-          </div>
-
-          <fieldset className="category-fieldset">
-            <legend>
-              Category
-              {suggestion && <small className="category-suggestion"><Sparkles size={12} /> Suggested from similar entries</small>}
-            </legend>
-            <div className="category-choices">
-              {Object.entries(categories).map(([key, item]) => (
-                <button
-                  key={key}
-                  type="button"
-                  className={form.category === key ? "category-choice is-selected" : "category-choice"}
-                  onClick={() => selectCategory(key)}
-                  aria-pressed={form.category === key}
-                >
-                  <CategoryIcon category={key} size="small" />
-                  <span>{item.label}</span>
-                  {form.category === key && <Check className="category-check" size={14} />}
-                </button>
-              ))}
+          {error && <p className="inline-notice expense-error" role="alert">{error}</p>}
+          {notice && <p className="inline-notice" role="status">{notice}</p>}
+          <fieldset className="expense-fields" disabled={disabled}>
+            <legend className="sr-only">Expense details</legend>
+            <label className="field expense-amount"><span>Amount</span><span className="input-affix"><span aria-hidden="true">₹</span><input ref={amountRef} type="text" inputMode="decimal" autoComplete="off" placeholder="0.00" value={form.amount} onChange={(event) => update("amount", event.target.value)} {...accessibility("amount")} /></span>{fieldError("amount")}</label>
+            <label className="field"><span>What was it for?</span><input ref={(node) => { fieldRefs.current.title = node; }} required maxLength={100} placeholder="Lunch, groceries, electricity bill…" value={form.title} onChange={(event) => update("title", event.target.value)} {...accessibility("title")} />{fieldError("title")}</label>
+            <div className="expense-form-pair">
+              <label className="field"><span>Category</span><select ref={(node) => { fieldRefs.current.category = node; }} value={form.category} onChange={(event) => update("category", event.target.value)} {...accessibility("category")}>{Object.entries(categories).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select>{fieldError("category")}</label>
+              <label className="field"><span>Date</span><input ref={(node) => { fieldRefs.current.spentOn = node; }} required type="date" value={form.spentOn} onChange={(event) => update("spentOn", event.target.value)} {...accessibility("spentOn")} />{fieldError("spentOn")}</label>
             </div>
+            {suggestion && <small className="expense-category-hint"><Sparkles size={13} /> Category from your previous entry. Change it anytime.</small>}
+            <details className="expense-details" key={`${expense?.id || "new"}:${open}`}><summary><span>Add a note <small>Optional</small></span><ChevronDown size={16} /></summary><div className="expense-details__body"><label className="field"><span className="sr-only">Note</span><textarea ref={(node) => { fieldRefs.current.note = node; }} rows={2} maxLength={300} placeholder="Anything worth remembering?" value={form.note} onChange={(event) => update("note", event.target.value)} {...accessibility("note")} />{fieldError("note")}</label></div></details>
           </fieldset>
-
-          <details
-            className="expense-details"
-            open={detailsOpen}
-            onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
-          >
-            <summary><span>Date & note</span><small>{form.spentOn}</small><ChevronDown size={16} /></summary>
-            <div className="expense-details__body">
-              <label className="field">
-                <span>Date</span>
-                <input required type="date" value={form.spentOn} onChange={(event) => update("spentOn", event.target.value)} />
-              </label>
-              <label className="field">
-                <span>Note <small>Optional</small></span>
-                <textarea
-                  rows="3"
-                  maxLength="300"
-                  placeholder="Anything worth remembering?"
-                  value={form.note}
-                  onChange={(event) => update("note", event.target.value)}
-                />
-              </label>
-            </div>
-          </details>
+          {!expense && templates.length > 0 && <details className="expense-repeats"><summary><History size={15} /> Repeat a recent expense</summary><div>{templates.map((template) => <button key={template.id} type="button" disabled={disabled} onClick={() => repeat(template)}><span>{template.title}</span><small>{currency.format(template.amount)}</small></button>)}</div></details>}
         </div>
-
-        <footer className="dialog-actions expense-form__actions">
-          <span className="save-hint">Enter to save · Esc to close</span>
-          <button className="button button--ghost" type="button" onClick={onClose} disabled={busy}>Cancel</button>
-          <button className="button button--primary" type="submit" disabled={busy}>
-            {busy ? "Saving…" : expense ? "Save changes" : "Save expense"}
-          </button>
-        </footer>
+        <footer className="dialog-actions expense-form__actions"><button className="button button--ghost" type="button" onClick={onClose} disabled={disabled}>Cancel</button><button className="button button--primary" type="submit" value="save" disabled={disabled}>{disabled ? "Saving…" : expense ? "Save changes" : "Save expense"}</button>{!expense && <button className="button button--secondary" type="submit" value="another" disabled={disabled}>Save & add another</button>}</footer>
       </form>
     </dialog>
   );
