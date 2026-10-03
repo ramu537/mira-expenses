@@ -1,3 +1,4 @@
+import FloatingAssistant from "./components/FloatingAssistant";
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
@@ -304,6 +305,7 @@ export default function App() {
           }
         }}
       />
+      <FloatingAssistant domain={"expenses"} userId={user.uid} date={manager.month + "-01"} />
       <Toast toast={toast} onClose={closeToast} />
     </>
   );

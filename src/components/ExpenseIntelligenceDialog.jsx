@@ -1,10 +1,9 @@
-import CoachingWorkspace from "./CoachingWorkspace";
 import { RefreshCw, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { analysisEngineLabel, freshnessLabel } from "../lib/intelligence";
 import ExpenseAnalysisPanel from "./ExpenseAnalysisPanel";
 
-export default function ExpenseIntelligenceDialog({ contextKey, onScenario, open, analysis, loading, error, onRefresh, onPoll, onClose, userId, date }) {
+export default function ExpenseIntelligenceDialog({ contextKey, onScenario, open, analysis, loading, error, onRefresh, onPoll, onClose }) {
   const dialogRef = useRef(null);
   const returnFocusRef = useRef(null);
   const [scenario, setScenario] = useState({ plannedAmount: "", plannedFor: "", availableFunds: "", minimumReserve: "" });
@@ -47,7 +46,7 @@ export default function ExpenseIntelligenceDialog({ contextKey, onScenario, open
         <div><span className="eyebrow">Grounded in your records</span><h2 id="expense-intelligence-title"><Sparkles size={19} /> Expense intelligence</h2><p>Review this month’s pace, budget pressure and unusual entries when you need them.</p></div>
         <div className="expense-intelligence-dialog__actions"><button className="icon-button" type="button" onClick={onRefresh} disabled={loading} aria-label="Refresh expense intelligence" title="Refresh"><RefreshCw className={loading ? "spin" : ""} size={18} /></button><button className="icon-button" type="button" onClick={onClose} aria-label="Close expense intelligence" title="Close"><X size={20} /></button></div>
       </header>
-      <CoachingWorkspace domain="expenses" userId={userId} date={date} active={open} onNavigate={onClose}><div className="expense-intelligence-dialog__body">
+      <div className="expense-intelligence-dialog__body">
         {analysis ? <div className="expense-intelligence-meta"><span>{analysisEngineLabel(analysis)}</span><span>{freshnessLabel(analysis.assistantGeneratedAt || analysis.generatedAt)}</span><span>{analysis.intelligenceCoverage || analysis.dataQuality?.coverageLabel || `${analysis.transactionCount || 0} recorded expenses`}</span></div> : null}
         {error && <p role="alert">{error}</p>}
         {analysis?.intelligenceError && <p role="status">{analysis.intelligenceError}</p>}
@@ -66,7 +65,7 @@ export default function ExpenseIntelligenceDialog({ contextKey, onScenario, open
           {analysis?.scenario && <section aria-live="polite"><h4>{analysis.scenario.headline}</h4><ul>{analysis.scenario.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul></section>}
         </form>
         <ExpenseAnalysisPanel analysis={analysis} loading={loading} error={error} onRetry={onRefresh} />
-      </div></CoachingWorkspace>
+      </div>
     </div>
   </dialog>;
 }
