@@ -276,7 +276,7 @@ export default function App() {
       >
         {content}
       </AppShell>
-      <ExpenseIntelligenceDialog contextKey={`${manager.month}:${manager.revision}`} onScenario={manager.analyzeScenario} open={intelligenceOpen} analysis={manager.analysis} loading={manager.analysisLoading} error={manager.analysisError} onRefresh={manager.retryAnalysis} onPoll={manager.pollAnalysis} onClose={() => setIntelligenceOpen(false)} />
+      <ExpenseIntelligenceDialog userId={user.uid} date={manager.month + "-01"} contextKey={`${manager.month}:${manager.revision}`} onScenario={manager.analyzeScenario} open={intelligenceOpen} analysis={manager.analysis} loading={manager.analysisLoading} error={manager.analysisError} onRefresh={manager.retryAnalysis} onPoll={manager.pollAnalysis} onClose={() => setIntelligenceOpen(false)} />
       <ExpenseDialog
         open={dialogOpen}
         expense={editingExpense}
