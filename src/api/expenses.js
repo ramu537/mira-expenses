@@ -49,9 +49,12 @@ export const expenseApi = {
     return {
       ...analysis,
       generatedAt: intelligence?.generatedAt || analysis.generatedAt,
+      intelligenceError: intelligenceResult.status === 'rejected' ? intelligenceResult.reason?.message : intelligence?.providerMessage,
       intelligenceStatus: intelligence?.status || "UNAVAILABLE",
       engine: intelligence?.engine || "CALCULATED",
       assistantInterpretation: intelligence?.assistantInterpretation,
+      assistantGeneratedAt: intelligence?.assistantGeneratedAt,
+      intelligenceCoverage: intelligence?.coverage,
       assistantEvidenceKeys: intelligence?.assistantEvidenceKeys || [],
       intelligenceEvidence: intelligence?.evidence || [],
       intelligenceAssumptions: intelligence?.assumptions || [],

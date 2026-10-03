@@ -2470,3 +2470,8 @@
     }
   }
 }
+
+@layer components { .expense-scenario { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; padding: 1rem; border: 1px solid var(--line); border-radius: 1rem; }
+.expense-scenario h3, .expense-scenario > p, .expense-scenario > section { grid-column: 1 / -1; }
+.expense-scenario label { display: grid; gap: .4rem; }
+@media (max-width: 600px) { .expense-scenario { grid-template-columns: 1fr; } } }

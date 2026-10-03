@@ -22,10 +22,10 @@ export const compactCurrency = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 1,
 });
 
-export function todayString() {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+export function todayString(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+  const part = type => parts.find(item => item.type === type)?.value;
+  return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
 export function currentMonth() {

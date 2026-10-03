@@ -5,6 +5,9 @@ import { currentMonth, monthBounds, shiftMonth } from "../lib/spending";
 
 export function useExpenseManager(user = null) {
   const requestSequence = useRef(0);
+  const dataSignature = useRef('');
+  const scenarioRef = useRef({});
+  const [revision, setRevision] = useState(0);
   const analysisSequence = useRef(0);
   const [month, setMonth] = useState(currentMonth);
   const [expenses, setExpenses] = useState([]);
@@ -36,7 +39,11 @@ export function useExpenseManager(user = null) {
         ? nextExpenses.slice().sort((left, right) => right.spentOn.localeCompare(left.spentOn))
         : []);
       setBudgets(Array.isArray(nextBudgets) ? nextBudgets : []);
-      setAnalysis(null);
+      const signature = view + JSON.stringify([nextExpenses, nextBudgets]);
+      if (dataSignature.current !== signature) {
+        dataSignature.current = signature; analysisSequence.current++;
+        setAnalysis(null); setAnalysisLoading(false); setRevision(value => value + 1);
+      }
       setLoadedMonth(view);
     } catch (error) {
       if (requestId !== requestSequence.current || activeView.current !== view) return;
@@ -46,13 +53,13 @@ export function useExpenseManager(user = null) {
     }
   }, [user, month, view]);
 
-  const loadAnalysis = useCallback(async (regenerateIntelligence) => {
+  const loadAnalysis = useCallback(async (regenerateIntelligence, scenario = {}) => {
     if (!user || activeView.current !== view) return null;
     const sequence = ++analysisSequence.current;
     setAnalysisLoading(true);
     setAnalysisError("");
     try {
-      const next = await expenseApi.analyze(month, {}, regenerateIntelligence);
+      const next = await expenseApi.analyze(month, scenario, regenerateIntelligence);
       if (sequence !== analysisSequence.current || activeView.current !== view) return null;
       setAnalysis(next);
       setAnalysisError("");
@@ -66,10 +73,12 @@ export function useExpenseManager(user = null) {
     }
   }, [month, user, view]);
 
-  const refreshAnalysis = useCallback(() => loadAnalysis(true), [loadAnalysis]);
-  const pollAnalysis = useCallback(() => loadAnalysis(false), [loadAnalysis]);
+  const refreshAnalysis = useCallback(() => loadAnalysis(true, scenarioRef.current), [loadAnalysis]);
+  const analyzeScenario = useCallback(scenario => { scenarioRef.current = scenario; return loadAnalysis(false, scenario); }, [loadAnalysis]);
+  const pollAnalysis = useCallback(() => loadAnalysis(false, scenarioRef.current), [loadAnalysis]);
 
   useEffect(() => {
+    scenarioRef.current = {};
     if (user) {
       load();
     }
@@ -82,9 +91,11 @@ export function useExpenseManager(user = null) {
   // Pick up expenses logged by an assistant when returning to the dashboard.
   useEffect(() => {
     const refresh = () => { if (document.visibilityState === "visible") void load(); };
+    const timer = window.setInterval(refresh, 30000);
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => {
+      window.clearInterval(timer);
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
@@ -95,6 +106,8 @@ export function useExpenseManager(user = null) {
       const saved = editingId
         ? await expenseApi.update(editingId, expense)
         : await expenseApi.create(expense);
+      if (activeView.current !== view) return saved;
+      analysisSequence.current++; setRevision(value => value + 1); setAnalysisLoading(false);
       setAnalysis(null);
       setAnalysisError("");
       if (activeView.current !== view) return saved;
@@ -116,6 +129,8 @@ export function useExpenseManager(user = null) {
     },
     async deleteExpense(id) {
       const deleted = await expenseApi.remove(id);
+      if (activeView.current !== view) return deleted;
+      analysisSequence.current++; setRevision(value => value + 1); setAnalysisLoading(false);
       setAnalysis(null);
       setAnalysisError("");
       if (activeView.current !== view) return deleted;
@@ -130,6 +145,8 @@ export function useExpenseManager(user = null) {
     },
     async restoreExpense(id) {
       const restored = await expenseApi.restore(id);
+      if (activeView.current !== view) return restored;
+      analysisSequence.current++; setRevision(value => value + 1); setAnalysisLoading(false);
       setAnalysis(null);
       setAnalysisError("");
       if (activeView.current !== view) return restored;
@@ -148,6 +165,8 @@ export function useExpenseManager(user = null) {
     },
     async saveBudgets(items) {
       const saved = await budgetApi.replace(month, items);
+      if (activeView.current !== view) return;
+      analysisSequence.current++; setRevision(value => value + 1); setAnalysisLoading(false);
       setAnalysis(null);
       setAnalysisError("");
       if (activeView.current !== view) return;
@@ -166,6 +185,7 @@ export function useExpenseManager(user = null) {
 
   return {
     month,
+    revision,
     setMonth,
     expenses,
     budgets,
@@ -178,6 +198,7 @@ export function useExpenseManager(user = null) {
     retry: load,
     retryAnalysis: refreshAnalysis,
     pollAnalysis,
+    analyzeScenario,
     actions,
   };
 }
