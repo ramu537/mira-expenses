@@ -1,5 +1,25 @@
 /* Expense-specific workflows. Loaded after the shared light/dark refinement. */
 @layer expense-ui {
+  .capture-options { border: 1px solid var(--ui-line); border-radius: var(--radius-sm); padding: 0.85rem; background: var(--ui-soft); }
+  .capture-options > summary { cursor: pointer; color: var(--ui-text); font-size: 0.85rem; font-weight: 600; }
+  .capture-options[open] > summary { margin-bottom: 1rem; }
+  .capture-background { padding-block: 0.75rem; color: var(--ui-text); font-size: 0.85rem; overflow-wrap: anywhere; }
+  .capture-background + .capture-background { border-top: 1px solid var(--ui-line); }
+  .capture-background .button { margin-top: 0.5rem; }
+
+  .expense-monthly-budget { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1.25rem; align-items: center; padding: clamp(1rem, 3vw, 1.6rem); }
+  .expense-monthly-budget .field { max-width: 32rem; min-width: 0; }
+  .expense-monthly-budget .input-affix { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border: 1px solid var(--ui-line); border-radius: var(--radius-sm); background: var(--ui-surface); color: var(--ui-ink); }
+  .expense-monthly-budget .input-affix input { width: 100%; min-width: 0; padding: 0; border: 0; background: transparent; color: var(--ui-ink); font-size: clamp(1.6rem, 3vw, 2rem); font-weight: 700; }
+  .expense-monthly-budget .input-affix:focus-within { outline: 2px solid var(--ui-action); outline-offset: 3px; }
+  .expense-monthly-budget .field > small { color: var(--ui-muted); line-height: 1.6; }
+  .expense-monthly-budget .field > .field-error { color: var(--ui-danger); }
+  .expense-monthly-budget__actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+  .expense-budget-optional { padding: 0; overflow: hidden; }
+  .expense-budget-optional > summary { cursor: pointer; padding: 1.15rem; color: var(--ui-ink); font-weight: 700; }
+  .expense-budget-optional > summary small { color: var(--ui-muted); font-weight: 400; margin-left: 0.6rem; }
+  .expense-budget-optional > p { margin: 0; padding: 0 1.15rem 1.15rem; color: var(--ui-muted); font-size: 0.85rem; }
+  @media (max-width: 640px) { .expense-monthly-budget { grid-template-columns: minmax(0, 1fr); } .expense-monthly-budget__actions .button--primary { flex: 1; } .expense-budget-optional > summary small { display: block; margin: 0.35rem 0 0; } }
   .expense-page-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
   .expense-page-heading h1 { color: var(--ui-ink); font-size: clamp(1.65rem, 2.6vw, 2.2rem); line-height: 1.2; letter-spacing: -0.04em; }
   .expense-page-heading p { margin-top: 0.4rem; color: var(--ui-muted); font-size: 0.85rem; }
@@ -163,4 +183,6 @@
   @media (prefers-reduced-motion: reduce) {
     .expense-form, .expense-row, .expense-budget-save { animation: none; transition: none; }
   }
+  .expense-details__body small, .capture-result small { overflow-wrap: anywhere; }
+  .capture-result small { display: block; color: var(--ui-muted); }
 }

@@ -1,6 +1,7 @@
 import { apiRequest } from "./client";
 
 export const expenseApi = {
+  source(id) { return apiRequest(`/expenses/${encodeURIComponent(id)}/source`); },
   list(start, end) {
     const params = new URLSearchParams({ start, end });
     return apiRequest(`/expenses?${params}`);
@@ -51,12 +52,14 @@ export const expenseApi = {
       generatedAt: intelligence?.generatedAt || analysis.generatedAt,
       intelligenceError: intelligenceResult.status === 'rejected' ? intelligenceResult.reason?.message : intelligence?.providerMessage,
       intelligenceStatus: intelligence?.status || "UNAVAILABLE",
+      interpretationStale: intelligence?.interpretationStale || false,
+      refreshStatus: intelligence?.refreshStatus || "UNAVAILABLE",
       engine: intelligence?.engine || "CALCULATED",
       assistantInterpretation: intelligence?.assistantInterpretation,
       assistantGeneratedAt: intelligence?.assistantGeneratedAt,
       intelligenceCoverage: intelligence?.coverage,
       assistantEvidenceKeys: intelligence?.assistantEvidenceKeys || [],
-      intelligenceEvidence: intelligence?.evidence || [],
+      intelligenceEvidence: intelligence?.assistantEvidence || intelligence?.evidence || [],
       intelligenceAssumptions: intelligence?.assumptions || [],
       intelligenceSafetyNotices: intelligence?.safetyNotices || [],
     };

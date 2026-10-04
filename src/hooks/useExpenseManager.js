@@ -2,16 +2,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { budgetApi } from "../api/budgets";
 import { expenseApi } from "../api/expenses";
 import { currentMonth, monthBounds, shiftMonth } from "../lib/spending";
+import { retainInterpretation } from "../lib/mutations";
 
 export function useExpenseManager(user = null) {
   const requestSequence = useRef(0);
   const dataSignature = useRef('');
   const scenarioRef = useRef({});
+  const analysisCache = useRef(new Map());
+  const cacheOwner = useRef(user?.uid);
+  if (cacheOwner.current !== user?.uid) { analysisCache.current.clear(); cacheOwner.current = user?.uid; }
   const [revision, setRevision] = useState(0);
   const analysisSequence = useRef(0);
   const [month, setMonth] = useState(currentMonth);
   const [expenses, setExpenses] = useState([]);
-  const [budgets, setBudgets] = useState([]);
+  const [budgets, setBudgets] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [analysisError, setAnalysisError] = useState("");
   const [analysisLoading, setAnalysisLoading] = useState(false);
@@ -38,11 +42,12 @@ export function useExpenseManager(user = null) {
       setExpenses(Array.isArray(nextExpenses)
         ? nextExpenses.slice().sort((left, right) => right.spentOn.localeCompare(left.spentOn))
         : []);
-      setBudgets(Array.isArray(nextBudgets) ? nextBudgets : []);
+      setBudgets(nextBudgets);
       const signature = view + JSON.stringify([nextExpenses, nextBudgets]);
       if (dataSignature.current !== signature) {
         dataSignature.current = signature; analysisSequence.current++;
-        setAnalysis(null); setAnalysisLoading(false); setRevision(value => value + 1);
+        setAnalysis(previous => previous?.month === month ? { ...previous, factsStale: true, interpretationStale: true, refreshStatus: "PENDING" } : null);
+        setAnalysisLoading(false); setRevision(value => value + 1);
       }
       setLoadedMonth(view);
     } catch (error) {
@@ -61,12 +66,15 @@ export function useExpenseManager(user = null) {
     try {
       const next = await expenseApi.analyze(month, scenario, regenerateIntelligence);
       if (sequence !== analysisSequence.current || activeView.current !== view) return null;
-      setAnalysis(next);
+      const retained = retainInterpretation(next, analysisCache.current.get(view));
+      analysisCache.current.set(view, retained);
+      setAnalysis(retained);
       setAnalysisError("");
       return next;
     } catch (error) {
       if (sequence !== analysisSequence.current || activeView.current !== view) return null;
       setAnalysisError(error.message);
+      setAnalysis(previous => previous ? { ...previous, factsStale: true, interpretationStale: true, refreshStatus: "FAILED" } : previous);
       return null;
     } finally {
       if (sequence === analysisSequence.current && activeView.current === view) setAnalysisLoading(false);
@@ -76,9 +84,18 @@ export function useExpenseManager(user = null) {
   const refreshAnalysis = useCallback(() => loadAnalysis(true, scenarioRef.current), [loadAnalysis]);
   const analyzeScenario = useCallback(scenario => { scenarioRef.current = scenario; return loadAnalysis(false, scenario); }, [loadAnalysis]);
   const pollAnalysis = useCallback(() => loadAnalysis(false, scenarioRef.current), [loadAnalysis]);
+  const invalidateMonths = useCallback(months => {
+    if (cacheOwner.current !== user?.uid) return;
+    for (const affected of months) {
+      const key = `${user?.uid || ""}:${affected}`;
+      const cached = analysisCache.current.get(key);
+      if (cached) analysisCache.current.set(key, { ...cached, factsStale: true, interpretationStale: true, refreshStatus: "PENDING" });
+    }
+  }, [user?.uid]);
 
   useEffect(() => {
     scenarioRef.current = {};
+    setAnalysis(analysisCache.current.get(view) || null);
     if (user) {
       load();
     }
@@ -87,6 +104,9 @@ export function useExpenseManager(user = null) {
       analysisSequence.current += 1;
     };
   }, [load, user]);
+
+  // Mutation acknowledgements never wait for analysis. Outbox refreshes AI; this fetches current facts/status.
+  useEffect(() => { if (loadedMonth === view) void loadAnalysis(false, scenarioRef.current); }, [revision, loadedMonth, view, loadAnalysis]);
 
   // Pick up expenses logged by an assistant when returning to the dashboard.
   useEffect(() => {
@@ -106,9 +126,10 @@ export function useExpenseManager(user = null) {
       const saved = editingId
         ? await expenseApi.update(editingId, expense)
         : await expenseApi.create(expense);
+      invalidateMonths(saved.affectedMonths || [saved.spentOn.slice(0, 7)]);
       if (activeView.current !== view) return saved;
       analysisSequence.current++; setRevision(value => value + 1); setAnalysisLoading(false);
-      setAnalysis(null);
+      setAnalysis(previous => previous ? { ...previous, factsStale: true, interpretationStale: true, refreshStatus: "PENDING" } : null);
       setAnalysisError("");
       if (activeView.current !== view) return saved;
       if (loadedMonth !== view) {
@@ -129,9 +150,10 @@ export function useExpenseManager(user = null) {
     },
     async deleteExpense(id) {
       const deleted = await expenseApi.remove(id);
+      invalidateMonths(deleted.affectedMonths || [deleted.spentOn.slice(0, 7)]);
       if (activeView.current !== view) return deleted;
       analysisSequence.current++; setRevision(value => value + 1); setAnalysisLoading(false);
-      setAnalysis(null);
+      setAnalysis(previous => previous ? { ...previous, factsStale: true, interpretationStale: true, refreshStatus: "PENDING" } : null);
       setAnalysisError("");
       if (activeView.current !== view) return deleted;
       if (loadedMonth !== view) {
@@ -145,9 +167,10 @@ export function useExpenseManager(user = null) {
     },
     async restoreExpense(id) {
       const restored = await expenseApi.restore(id);
+      invalidateMonths(restored.affectedMonths || [restored.spentOn.slice(0, 7)]);
       if (activeView.current !== view) return restored;
       analysisSequence.current++; setRevision(value => value + 1); setAnalysisLoading(false);
-      setAnalysis(null);
+      setAnalysis(previous => previous ? { ...previous, factsStale: true, interpretationStale: true, refreshStatus: "PENDING" } : null);
       setAnalysisError("");
       if (activeView.current !== view) return restored;
       if (loadedMonth !== view) {
@@ -165,9 +188,10 @@ export function useExpenseManager(user = null) {
     },
     async saveBudgets(items) {
       const saved = await budgetApi.replace(month, items);
+      invalidateMonths([month]);
       if (activeView.current !== view) return saved;
       analysisSequence.current++; setRevision(value => value + 1); setAnalysisLoading(false);
-      setAnalysis(null);
+      setAnalysis(previous => previous ? { ...previous, factsStale: true, interpretationStale: true, refreshStatus: "PENDING" } : null);
       setAnalysisError("");
       if (activeView.current !== view) return saved;
       if (loadedMonth !== view) {
@@ -176,13 +200,13 @@ export function useExpenseManager(user = null) {
       }
       requestSequence.current += 1;
       setLoading(false);
-      setBudgets(Array.isArray(saved) ? saved : []);
+      setBudgets(saved);
       return saved;
     },
     async previousBudget() {
       return budgetApi.list(shiftMonth(month, -1));
     },
-  }), [month, view, loadedMonth, load]);
+  }), [month, view, loadedMonth, load, invalidateMonths]);
 
   return {
     month,

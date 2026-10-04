@@ -3,6 +3,7 @@ import { apiRequest } from "./client";
 import { normalizeCapture } from "../lib/capture.js";
 
 export const captureApi = {
+  providerStatus: () => apiRequest("/captures/provider-status"),
   create: (capture) => apiRequest("/captures", {
     method: "POST",
     body: JSON.stringify(normalizeCapture(capture)),
@@ -16,4 +17,5 @@ export const captureApi = {
   get: (id) => apiRequest(`/captures/${id}`),
   organize: (id) => apiRequest(`/captures/${id}/organize`, { method: "POST" }),
   organization: (id) => apiRequest(`/captures/${id}/organization`),
+  undo: (id) => apiRequest(`/captures/${id}/organization/undo`, { method: "POST" }),
 };

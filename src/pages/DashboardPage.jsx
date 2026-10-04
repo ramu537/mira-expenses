@@ -5,13 +5,13 @@ import CategoryBreakdown from "../components/CategoryBreakdown";
 import ConfirmDialog from "../components/ConfirmDialog";
 import ExpenseRow from "../components/ExpenseRow";
 import SpendingTrend from "../components/SpendingTrend";
-import { budgetAmountMap, buildCategoryData, buildDailyData, buildSummary, currency, monthLabel } from "../lib/spending";
+import { effectiveBudgetTotal, buildCategoryData, buildDailyData, buildSummary, currency, monthLabel } from "../lib/spending";
 
 export default function DashboardPage({ month, expenses, budgets, onAdd, onOpenAiCapture, onEdit, onDelete, deletingId }) {
   const summary = useMemo(() => buildSummary(expenses), [expenses]);
   const dailyData = useMemo(() => buildDailyData(expenses, month), [expenses, month]);
   const categoryData = useMemo(() => buildCategoryData(expenses), [expenses]);
-  const budgetTotal = Object.values(budgetAmountMap(budgets)).reduce((sum, value) => sum + Math.round(value * 100), 0) / 100;
+  const budgetTotal = effectiveBudgetTotal(budgets);
   const remaining = budgetTotal - summary.total;
   const used = budgetTotal ? Math.round(summary.total / budgetTotal * 100) : 0;
   const [pendingDelete, setPendingDelete] = useState(null);
@@ -32,12 +32,12 @@ export default function DashboardPage({ month, expenses, budgets, onAdd, onOpenA
           {budgetTotal > 0 ? <>
             <div className={`expense-budget-track${used > 100 ? " is-over" : ""}`} role="progressbar" aria-label="Monthly budget used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(used, 100)} aria-valuetext={`${used}% used`}><span style={{ width: `${Math.min(used, 100)}%` }} /></div>
             <div className="expense-summary__budget-footer"><span className={remaining < 0 ? "text-danger" : ""}>{currency.format(Math.abs(remaining))} {remaining < 0 ? "over budget" : "left in your budget"} · {used}% used</span><Link to="/budget">Review <ArrowRight size={16} /></Link></div>
-          </> : <><p>Set category limits here. Their total becomes your monthly budget.</p><Link className="text-link" to="/budget">Set your monthly budget <ArrowRight size={16} /></Link></>}
+          </> : <><p>One monthly amount is enough. Category limits are optional.</p><Link className="text-link" to="/budget">Set your monthly budget <ArrowRight size={16} /></Link></>}
         </div>
       </section>
       <section className="panel expense-recent">
         <header className="panel-header"><div><h2>{expenses.length ? "Recent expenses" : "Start with one expense"}</h2><p>{expenses.length ? "Select an entry to edit it." : "Use a quick form, or tell AI what you spent."}</p></div>{expenses.length > 0 && <Link className="text-link" to="/entries">View all <ArrowRight size={16} /></Link>}</header>
-        {expenses.length ? <div>{expenses.slice(0, 6).map((expense) => <ExpenseRow key={expense.id} expense={expense} showDate onEdit={onEdit} onDelete={setPendingDelete} />)}</div> : <div className="expense-start"><div><strong>Your purchases, all in one place.</strong><p>For example: “Paid ₹280 for lunch today.” No budget setup required to start.</p></div><div><button className="button button--primary" type="button" onClick={onAdd}><Plus size={18} /> Add first expense</button><button className="button button--secondary" type="button" onClick={onOpenAiCapture}><Sparkles size={18} /> Log with AI</button></div></div>}
+        {expenses.length ? <div>{expenses.slice(0, 6).map((expense) => <ExpenseRow key={expense.id} expense={expense} showDate onEdit={onEdit} onDelete={setPendingDelete} />)}</div> : <div className="expense-start"><div><strong>Your purchases, all in one place.</strong><p>For example: “Paid ₹280 for lunch today.” No budget setup required to start.</p></div><div><button className="button button--primary" type="button" onClick={onOpenAiCapture}><Sparkles size={18} /> Log first expense</button><button className="button button--secondary" type="button" onClick={onAdd}><Plus size={18} /> Manual entry</button></div></div>}
       </section>
       {expenses.length > 0 && <section className="analytics-grid"><SpendingTrend data={dailyData} /><CategoryBreakdown data={categoryData} total={summary.total} /></section>}
       <ConfirmDialog open={Boolean(pendingDelete)} expense={pendingDelete} busy={Boolean(deletingId)} onCancel={() => setPendingDelete(null)} onConfirm={async () => { if (pendingDelete && await onDelete(pendingDelete.id)) setPendingDelete(null); }} />

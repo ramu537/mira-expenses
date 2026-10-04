@@ -1,4 +1,5 @@
 import { categories } from "./spending.js";
+import { captureToday } from "./captureUi.js";
 
 const MAX_CENTS = 999_999_999_999;
 const plainAmount = /^(?:\d+(?:\.\d{0,2})?|\.\d{1,2})$/;
@@ -31,16 +32,30 @@ export function validateExpense(form) {
     amount: moneyError(form.amount),
     title: !form.title.trim() ? "Add a description." : form.title.trim().length > 100 ? "Use 100 characters or fewer." : "",
     category: categories[form.category] ? "" : "Choose a category.",
-    spentOn: validDate(form.spentOn) ? "" : "Choose a valid date.",
+    spentOn: !validDate(form.spentOn) ? "Choose a valid date." : form.spentOn > captureToday() ? "Expenses cannot be dated in the future (India time)." : "",
     note: form.note.length <= 300 ? "" : "Use 300 characters or fewer.",
   };
 }
 
 export function budgetValues(budgets) {
+  const items = Array.isArray(budgets) ? budgets : budgets?.items || [];
   return Object.fromEntries(Object.keys(categories).map((category) => {
-    const amount = budgets.find((item) => item.category === category)?.amount;
+    const amount = items.find((item) => item.category === category)?.amount;
     return [category, Number(amount) > 0 ? String(amount) : ""];
   }));
+}
+
+export function monthlyBudgetValue(plan) {
+  const amount = plan?.monthlyAmount ?? (plan?.totalSource === "LEGACY_CATEGORIES" ? plan.effectiveTotal : null);
+  if (Array.isArray(plan)) {
+    const total = plan.reduce((sum, item) => sum + Math.round(Number(item.amount || 0) * 100), 0);
+    return total > 0 ? String(total / 100) : "";
+  }
+  return Number(amount) > 0 ? String(amount) : "";
+}
+
+export function budgetPlanSignature(monthlyAmount, values) {
+  return `${moneyCents(monthlyAmount, true) ?? `invalid:${monthlyAmount}`}|${budgetSignature(values)}`;
 }
 
 export function budgetSignature(values) {

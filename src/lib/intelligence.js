@@ -7,5 +7,5 @@ export function analysisEngineLabel(analysis) {
 export function freshnessLabel(value) {
   if (!value) return "Calculated when opened";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "Calculated when opened" : `Updated ${new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(date)}`;
+  return Number.isNaN(date.getTime()) ? "Calculated when opened" : `Updated ${new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" }).format(date)} IST`;
 }

@@ -2,34 +2,44 @@ import { ArrowDownToLine, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import CategoryIcon from "../components/CategoryIcon";
 import { buildSummary, categories, currency, monthLabel } from "../lib/spending";
-import { budgetItems, budgetSignature, budgetValues, moneyCents, moneyError } from "../lib/expenseForms";
+import { budgetItems, budgetSignature, budgetPlanSignature, budgetValues, monthlyBudgetValue, moneyCents, moneyError } from "../lib/expenseForms";
 
 export default function BudgetPage({ month, expenses, budgets, draft, saving, onDraftChange, onSave, onCopyPrevious }) {
   const stored = useMemo(() => budgetValues(budgets), [budgets]);
-  const storedSignature = budgetSignature(stored);
+  const storedAmount = monthlyBudgetValue(budgets);
+  const storedSignature = budgetPlanSignature(storedAmount, stored);
+  const monthlyAmount = draft?.monthlyAmount ?? storedAmount;
   const values = draft?.values || stored;
   const spending = useMemo(() => buildSummary(expenses), [expenses]);
-  const changed = budgetSignature(values) !== storedSignature;
+  const changed = budgetPlanSignature(monthlyAmount, values) !== storedSignature;
   const remoteChanged = changed && draft && draft.baseSignature !== storedSignature;
   const [attempted, setAttempted] = useState(false);
   const [working, setWorking] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [optionalOpen, setOptionalOpen] = useState(false);
   const lock = useRef(false);
   const mounted = useRef(false);
   const inputRefs = useRef({});
+  const optionalRef = useRef(null);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const disabled = saving || Boolean(working);
   const errors = Object.fromEntries(Object.keys(categories).map((key) => [key, moneyError(values[key], true)]));
   const invalid = Object.keys(categories).find((key) => errors[key]);
-  const total = Object.values(values).reduce((sum, value) => sum + (moneyCents(value, true) ?? 0), 0) / 100;
-  const savedTotal = Object.values(stored).reduce((sum, value) => sum + (moneyCents(value, true) ?? 0), 0) / 100;
+  const monthlyError = String(monthlyAmount).trim() ? moneyError(monthlyAmount) : "";
+  const total = (moneyCents(monthlyAmount, true) ?? 0) / 100;
+  const savedTotal = (moneyCents(storedAmount, true) ?? 0) / 100;
   const remaining = total - spending.total;
 
   function update(key, value) {
     setError(""); setNotice("");
     const next = { ...values, [key]: value };
-    onDraftChange(budgetSignature(next) === storedSignature ? null : { values: next, baseSignature: draft?.baseSignature || storedSignature });
+    onDraftChange(budgetPlanSignature(monthlyAmount, next) === storedSignature ? null : { monthlyAmount, values: next, baseSignature: draft?.baseSignature || storedSignature });
+  }
+
+  function updateMonthly(value) {
+    setError(""); setNotice("");
+    onDraftChange(budgetPlanSignature(value, values) === storedSignature ? null : { monthlyAmount: value, values, baseSignature: draft?.baseSignature || storedSignature });
   }
 
   async function copyPrevious() {
@@ -39,10 +49,11 @@ export default function BudgetPage({ month, expenses, budgets, draft, saving, on
       const previous = await onCopyPrevious();
       if (!mounted.current) return;
       const copied = budgetValues(previous || []);
-      if (!Object.values(copied).some((value) => Number(value) > 0)) {
+      const copiedAmount = monthlyBudgetValue(previous);
+      if (!copiedAmount && !Object.values(copied).some((value) => Number(value) > 0)) {
         setNotice("No budget was set last month. Your current amounts have been kept."); return;
       }
-      onDraftChange(budgetSignature(copied) === storedSignature ? null : { values: copied, baseSignature: storedSignature });
+      onDraftChange(budgetPlanSignature(copiedAmount, copied) === storedSignature ? null : { monthlyAmount: copiedAmount, values: copied, baseSignature: storedSignature });
       setAttempted(false); setNotice("Last month copied. Review these amounts, then save.");
     } catch (err) {
       if (mounted.current) setError(err.message || "Could not copy last month's budget. Try again.");
@@ -56,10 +67,12 @@ export default function BudgetPage({ month, expenses, budgets, draft, saving, on
     event.preventDefault();
     if (lock.current || disabled || !changed) return;
     setAttempted(true); setError(""); setNotice("");
-    if (invalid) { inputRefs.current[invalid]?.focus(); return; }
+    if (monthlyError) { inputRefs.current.monthly?.focus(); return; }
+    if (invalid) { if (optionalRef.current) optionalRef.current.open = true; inputRefs.current[invalid]?.focus(); return; }
     lock.current = true; setWorking("save");
     try {
-      await onSave(budgetItems(values));
+      await onSave({ monthlyAmount: total > 0 ? total : null,
+        ...(budgetSignature(values) !== budgetSignature(stored) ? { items: budgetItems(values) } : {}) });
       if (mounted.current) setNotice("Your monthly budget has been saved.");
     } catch (err) {
       if (mounted.current) setError(err.message || "Could not save. Your amounts are still here; try again.");
@@ -70,17 +83,24 @@ export default function BudgetPage({ month, expenses, budgets, draft, saving, on
   }
 
   return (
-    <form className="page-stack expense-budget-page" onSubmit={save} noValidate>
-      <header className="expense-page-heading"><div><span className="eyebrow">{monthLabel(month)}</span><h1>Set your budget</h1><p>Add limits to any categories you use. Leave the others blank.</p></div><button className="button button--secondary" type="button" disabled={disabled} onClick={copyPrevious}><ArrowDownToLine size={17} /> {working === "copy" ? "Copying…" : "Copy last month"}</button></header>
+    <form className="page-stack expense-budget-page" onSubmit={save} noValidate onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); event.currentTarget.requestSubmit(); } }}>
+      <header className="expense-page-heading"><div><span className="eyebrow">{monthLabel(month)}</span><h1>Your monthly budget</h1><p>One amount. Everything else is optional.</p></div><button className="button button--secondary" type="button" disabled={disabled} onClick={copyPrevious}><ArrowDownToLine size={17} /> {working === "copy" ? "Copying…" : "Copy last month"}</button></header>
+      <section className="panel expense-monthly-budget" aria-label="Set monthly budget">
+        <label className="field" htmlFor="monthly-budget"><span>How much do you want to spend this month?</span><span className="input-affix"><span aria-hidden="true">₹</span><input id="monthly-budget" ref={node => { inputRefs.current.monthly = node; }} type="text" inputMode="decimal" autoComplete="off" autoFocus placeholder="e.g. 30,000" value={monthlyAmount} disabled={disabled} onChange={event => updateMonthly(event.target.value)} aria-invalid={attempted && Boolean(monthlyError)} aria-describedby={attempted && monthlyError ? "monthly-budget-help monthly-budget-error" : "monthly-budget-help"} /></span><small id="monthly-budget-help">No category breakdown needed. Clear the amount to remove your monthly budget.</small>{attempted && monthlyError && <small className="field-error" id="monthly-budget-error">{monthlyError}</small>}</label>
+        <div className="expense-monthly-budget__actions"><button className="button button--primary" type="submit" disabled={!changed || disabled}>{working === "save" || saving ? "Saving…" : "Save budget"}</button>{monthlyAmount && <button className="button button--ghost" type="button" disabled={disabled} onClick={() => updateMonthly("")}>Remove monthly limit</button>}{draft && <button className="button button--ghost" type="button" disabled={disabled} onClick={() => { onDraftChange(null); setError(""); setNotice(""); setAttempted(false); }}><RotateCcw size={16} /> Discard changes</button>}</div>
+      </section>
       <section className="expense-budget-summary" aria-label="Budget summary">
-        <div><span>{changed ? "Draft monthly budget" : "Monthly budget"}</span><strong>{invalid ? "Check amounts" : total ? currency.format(total) : "Not set"}</strong><small>{changed ? `Saved budget: ${savedTotal ? currency.format(savedTotal) : "not set"}` : "The sum of your category limits"}</small></div>
+        <div><span>{changed ? "Draft monthly budget" : "Monthly budget"}</span><strong>{monthlyError ? "Check amount" : total ? currency.format(total) : "Not set"}</strong><small>{changed ? `Saved budget: ${savedTotal ? currency.format(savedTotal) : "not set"}` : "Your overall spending limit"}</small></div>
         <div><span>Spent this month</span><strong>{currency.format(spending.total)}</strong><small>{spending.count} recorded expenses</small></div>
-        <div><span>{remaining < 0 && total ? "Over budget" : "Left in budget"}</span><strong className={remaining < 0 && total ? "text-danger" : ""}>{total && !invalid ? currency.format(Math.abs(remaining)) : "—"}</strong><small>A spending limit, not your bank balance</small></div>
+        <div><span>{remaining < 0 && total ? "Over budget" : "Left in budget"}</span><strong className={remaining < 0 && total ? "text-danger" : ""}>{total && !monthlyError ? currency.format(Math.abs(remaining)) : "—"}</strong><small>A spending limit, not your bank balance</small></div>
       </section>
       {remoteChanged && <p className="inline-notice" role="status">The saved budget changed while you were editing. Your draft is kept. Save to replace it, or discard to use the latest saved amounts.</p>}
       {error && <p className="inline-notice expense-error" role="alert">{error}</p>}
       {notice && <p className="inline-notice" role="status">{notice}</p>}
-      <section className="panel expense-budget-table" aria-label="Category limits">
+      <details className="panel expense-budget-optional" ref={optionalRef} onToggle={event => setOptionalOpen(event.currentTarget.open)}>
+        <summary>Category limits <small>Optional · no split required</small></summary>
+        <p>Set a limit only where it helps. These are separate guardrails within your monthly budget, not extra money. They do not need to add up to it.</p>
+      <section className="expense-budget-table" aria-label="Category limits">
         <div className="expense-budget-table__head" aria-hidden="true"><span>Category</span><span>Spent</span><span>Monthly limit</span><span>Left / over</span></div>
         {Object.entries(categories).map(([key, item]) => {
           const spent = spending.byCategory[key] || 0;
@@ -94,7 +114,8 @@ export default function BudgetPage({ month, expenses, budgets, draft, saving, on
           </div>;
         })}
       </section>
-      <footer className="expense-budget-save"><span role="status">{changed ? "Unsaved changes" : savedTotal ? "All changes saved" : "Add an amount, then save your budget"}</span><div>{draft && <button className="button button--ghost" type="button" disabled={disabled} onClick={() => { onDraftChange(null); setError(""); setNotice(""); setAttempted(false); }}><RotateCcw size={16} /> Discard</button>}<button className="button button--primary" type="submit" disabled={!changed || disabled}>{working === "save" || saving ? "Saving…" : "Save budget"}</button></div></footer>
+      </details>
+      {optionalOpen && <footer className="expense-budget-save"><span role="status">{changed ? "Unsaved changes" : "All changes saved"}</span><button className="button button--primary" type="submit" disabled={!changed || disabled}>{working === "save" || saving ? "Saving…" : "Save budget"}</button></footer>}
     </form>
   );
 }

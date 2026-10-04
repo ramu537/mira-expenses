@@ -102,10 +102,10 @@ export default function AppShell({ month, onMonthChange, onAdd, onOpenIntelligen
           <MonthControl month={month} onChange={onMonthChange} />
           <div className="topbar-actions">
             <ThemeControl />
-            <button className="button button--secondary topbar-capture" type="button" onClick={onOpenAiCapture} title="Log from text or a receipt">
-              <Sparkles size={17} /> <span>Log with AI</span>
+            <button className="button button--secondary topbar-capture" type="button" onClick={onAdd} title="Manual entry — optional">
+              <Plus size={17} /> <span>Manual entry</span>
             </button>
-            <button className="button button--primary topbar-add" type="button" onClick={onAdd} aria-label="Add expense">
+            <button className="button button--primary topbar-add" type="button" onClick={onOpenAiCapture} aria-label="Add expense with text or receipt">
               <Plus size={18} strokeWidth={2.4} />
               <span className="topbar-add__full">Add expense</span><span className="topbar-add__short" aria-hidden="true">Add</span>
             </button>

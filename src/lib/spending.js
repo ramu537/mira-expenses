@@ -54,7 +54,8 @@ export function monthLabel(month, short = false) {
 }
 
 export function defaultDateForMonth(month) {
-  return month === currentMonth() ? todayString() : `${month}-01`;
+  // A future budget month can be browsed, but actual expenses default to a real transaction day.
+  return month >= currentMonth() ? todayString() : `${month}-01`;
 }
 
 export function readableDate(date, includeYear = false) {
@@ -106,7 +107,13 @@ export function buildCategoryData(expenses) {
 }
 
 export function budgetAmountMap(budgets) {
-  return Object.fromEntries((budgets || []).map((item) => [item.category, Number(item.amount)]));
+  const items = Array.isArray(budgets) ? budgets : budgets?.items || [];
+  return Object.fromEntries(items.map((item) => [item.category, Number(item.amount)]));
+}
+
+export function effectiveBudgetTotal(budgets) {
+  if (!Array.isArray(budgets)) return Number(budgets?.effectiveTotal || 0);
+  return Object.values(budgetAmountMap(budgets)).reduce((sum, amount) => sum + Math.round(amount * 100), 0) / 100;
 }
 
 export function groupExpenses(expenses, order = "NEWEST") {

@@ -22,7 +22,7 @@ export default function ExpenseIntelligenceDialog({ contextKey, onScenario, open
     }
   }, [open]);
 
-  useEffect(() => { if (open) void onRefresh(); }, [open, contextKey, onRefresh]);
+  useEffect(() => { if (open) void onPoll?.(); }, [open, contextKey, onPoll]);
   useEffect(() => {
     if (!open || !onPoll) return undefined;
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible' && !loading) void onPoll(); }, analysis?.intelligenceStatus === 'PENDING' ? 8000 : 30000);
@@ -49,6 +49,10 @@ export default function ExpenseIntelligenceDialog({ contextKey, onScenario, open
       <div className="expense-intelligence-dialog__body">
         {analysis ? <div className="expense-intelligence-meta"><span>{analysisEngineLabel(analysis)}</span><span>{freshnessLabel(analysis.assistantGeneratedAt || analysis.generatedAt)}</span><span>{analysis.intelligenceCoverage || analysis.dataQuality?.coverageLabel || `${analysis.transactionCount || 0} recorded expenses`}</span></div> : null}
         {error && <p role="alert">{error}</p>}
+        {analysis?.interpretationStale && <p className="inline-notice" role="status">Previous interpretation · based on earlier records. {analysis.factsStale ? "Figures are also from the last successful load; refreshing them." : "Calculated figures below reflect the current ledger."}</p>}
+        {analysis?.refreshStatus === "PENDING" && <p role="status">A fresh interpretation is queued. Your saved expenses are unaffected.</p>}
+        {analysis?.refreshStatus === "FAILED" && <p role="status">Refresh failed. The last useful interpretation is retained; use Refresh to retry analysis, not the expense write.</p>}
+        {analysis?.interpretationStale && analysis.assistantInterpretation && !analysis.intelligenceEvidence?.length && <p role="status">This older interpretation has no retained supporting snapshot. It is not evidence about your current spending.</p>}
         {analysis?.intelligenceError && <p role="status">{analysis.intelligenceError}</p>}
         {analysis?.assistantInterpretation ? <section className="expense-intelligence-interpretation"><span className="eyebrow">Assistant interpretation</span><p>{analysis.assistantInterpretation}</p>{analysis.intelligenceEvidence?.length ? <dl>{analysis.intelligenceEvidence.map((item) => <div key={item.key}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl> : null}</section> : null}
         <form className="expense-scenario" onSubmit={event => { event.preventDefault(); void onScenario({

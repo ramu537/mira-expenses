@@ -49,10 +49,10 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
-        configureAccessTokenProvider(async () => currentUser.getIdToken());
+        configureAccessTokenProvider(async () => currentUser.getIdToken(), currentUser.uid);
         setUser(currentUser);
       } else if (import.meta.env.DEV && (window.location.search.includes("dev=true") || localStorage.getItem("mira-dev-user") === "true")) {
-        configureAccessTokenProvider(async () => "dev-mock-token");
+        configureAccessTokenProvider(async () => "dev-mock-token", "dev-mock-user");
         setUser({ uid: "dev-user", email: "mani@mira.app", displayName: "Mani", getIdToken: async () => "dev-mock-token" });
       } else {
         configureAccessTokenProvider(null);
@@ -171,7 +171,7 @@ export default function App() {
       savedInDialog.current = saved.spentOn;
       setToast({
         tone: saved.possibleDuplicate ? "warning" : "success",
-        message: editingExpense
+        message: saved.mutationReceipt?.replayed ? `${saved.title} already saved · original receipt recovered.` : editingExpense
           ? `${saved.title} updated.`
           : saved.possibleDuplicate
             ? `${saved.title} saved. This may match an existing expense.`
@@ -301,7 +301,7 @@ export default function App() {
               month={manager.month}
               expenses={manager.expenses}
               deletingId={deletingId}
-              onAdd={openCreate}
+              onAdd={() => setAiCaptureOpen(true)}
               onEdit={openEdit}
               onDelete={deleteExpense}
             />
@@ -355,6 +355,7 @@ export default function App() {
         onSave={saveExpense}
       />
       <AiExpenseCaptureModal
+        onManual={() => { setAiCaptureOpen(false); openCreate(); }}
         key={user.uid}
         open={aiCaptureOpen}
         initialDate={defaultDateForMonth(manager.month)}

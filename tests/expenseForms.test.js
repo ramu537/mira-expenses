@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { budgetItems, budgetSignature, budgetValues, moneyCents, moneyError, validDate, validateExpense } from "../src/lib/expenseForms.js";
-import { buildDailyData, buildSummary, currency, groupExpenses } from "../src/lib/spending.js";
+import { budgetItems, budgetSignature, budgetValues, monthlyBudgetValue, budgetPlanSignature, moneyCents, moneyError, validDate, validateExpense } from "../src/lib/expenseForms.js";
+import { effectiveBudgetTotal, buildDailyData, buildSummary, currency, groupExpenses } from "../src/lib/spending.js";
+import { defaultDateForMonth, todayString } from "../src/lib/spending.js";
 
 test("amounts accept paise and Indian or international digit grouping", () => {
   assert.equal(moneyCents("280.50"), 28050);
@@ -30,6 +31,12 @@ test("expense validation follows the existing backend contract", () => {
   assert.equal(validDate("2026-2-3"), false);
 });
 
+test("future budget browsing does not default logging to a future transaction", () => {
+  assert.equal(defaultDateForMonth("9999-12"), todayString());
+  const errors = validateExpense({ title: "Lunch", amount: "120.50", category: "FOOD", spentOn: "9999-12-31", note: "" });
+  assert.match(errors.spentOn, /future/);
+});
+
 test("budget drafts stay as text and normalize empty amounts only on save", () => {
   const values = budgetValues([{ category: "FOOD", amount: 2500.5 }]);
   assert.equal(values.FOOD, "2500.5");
@@ -38,6 +45,19 @@ test("budget drafts stay as text and normalize empty amounts only on save", () =
   assert.deepEqual(budgetItems(values).find((item) => item.category === "FOOD"), { category: "FOOD", amount: 2500.5 });
   assert.equal(budgetSignature(values), budgetSignature({ ...values, FOOD: "2,500.50", OTHER: "0" }));
   assert.throws(() => budgetItems({ ...values, FOOD: "2.555" }));
+});
+
+test("monthly budget is independent from optional category limits", () => {
+  const plan = { monthlyAmount: 30000, effectiveTotal: 30000, totalSource: "MONTHLY", items: [{ category: "FOOD", amount: 8000 }] };
+  assert.equal(monthlyBudgetValue(plan), "30000");
+  assert.equal(effectiveBudgetTotal(plan), 30000);
+  assert.equal(budgetValues(plan).FOOD, "8000");
+  const unset = { ...plan, monthlyAmount: null, effectiveTotal: 0, totalSource: "UNSET" };
+  assert.equal(monthlyBudgetValue(unset), "");
+  assert.equal(effectiveBudgetTotal(unset), 0);
+  assert.equal(monthlyBudgetValue({ ...plan, monthlyAmount: null, effectiveTotal: 8000, totalSource: "LEGACY_CATEGORIES" }), "8000");
+  assert.equal(budgetPlanSignature("30,000", budgetValues(plan)), budgetPlanSignature("30000.00", budgetValues(plan)));
+  assert.notEqual(budgetPlanSignature("", budgetValues(plan)), budgetPlanSignature("30000", budgetValues(plan)));
 });
 
 test("expense displays retain paise instead of rounding the purchase", () => {
