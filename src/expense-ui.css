@@ -120,10 +120,10 @@
   .expense-budget-limit { min-width: 0; }
   .expense-budget-limit input { width: 100%; min-width: 0; min-height: 2.6rem; padding: 0.6rem; color: var(--ui-ink); outline: none; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
   .expense-budget-limit .field-error { display: block; margin-top: 0.25rem; }
-  .expense-budget-save { position: sticky; bottom: 1rem; z-index: 10; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin-right: 4.25rem; padding: 0.8rem 1rem; border: 1px solid var(--ui-line); border-radius: var(--radius-md); background: var(--ui-glass); backdrop-filter: blur(18px); box-shadow: var(--shadow-sm); }
+  .expense-budget-save { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.85rem 1.1rem; border-top: 1px solid var(--ui-line-soft); background: var(--ui-surface); }
   .toast { bottom: calc(var(--ui-floating-bottom) + 4.1rem); }
   .expense-budget-save > span { color: var(--ui-muted); font-size: 0.8rem; }
-  .expense-budget-save > div { display: flex; flex-shrink: 0; gap: 0.5rem; }
+  .expense-budget-save > .inline-notice { flex-basis: 100%; margin: 0; }
   .expense-entry-tools { display: grid; gap: 0.7rem; }
   .expense-entry-tools__primary { display: grid; grid-template-columns: minmax(0, 1fr) minmax(9rem, 13rem); gap: 0.7rem; }
   .expense-entry-tools .search-field { padding: 0.6rem 0.8rem; min-height: 2.8rem; }
@@ -144,7 +144,6 @@
     .topbar-brand { display: none; }
     .topbar-actions { gap: 0.4rem; }
     .topbar-user { display: none; }
-    .expense-budget-save { bottom: calc(4.6rem + env(safe-area-inset-bottom)); margin-right: 4.25rem; }
     .expense-dialog { max-width: none; max-height: none; padding: 0.6rem; }
     .expense-dialog .expense-form { max-height: calc(100dvh - 1.2rem); max-width: calc(100vw - 1.2rem); }
     .expense-form .field input, .expense-form .field select, .expense-budget-limit input { font-size: 1rem; }
@@ -177,8 +176,7 @@
     .expense-budget-spent > small { display: inline; margin-right: 0.3rem; }
     .expense-budget-remaining { grid-column: 2; grid-row: 3; font-size: 0.7rem; }
     .expense-budget-save { align-items: start; flex-direction: column; padding: 0.7rem; }
-    .expense-budget-save > div { width: 100%; justify-content: flex-end; }
-    .expense-budget-save .button { font-size: 0.75rem; padding-inline: 0.7rem; }
+    .expense-budget-save .button { width: 100%; }
     .expense-entry-tools__primary { grid-template-columns: minmax(0, 1fr); }
     .expense-advanced-filters > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .expense-advanced-filters .field:last-child { grid-column: 1 / -1; }

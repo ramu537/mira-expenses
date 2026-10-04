@@ -11,13 +11,14 @@ export default function BudgetPage({ month, expenses, budgets, draft, saving, on
   const monthlyAmount = draft?.monthlyAmount ?? storedAmount;
   const values = draft?.values || stored;
   const spending = useMemo(() => buildSummary(expenses), [expenses]);
+  const categoriesChanged = budgetSignature(values) !== budgetSignature(stored);
+  const monthlyChanged = budgetPlanSignature(monthlyAmount, stored) !== storedSignature;
   const changed = budgetPlanSignature(monthlyAmount, values) !== storedSignature;
   const remoteChanged = changed && draft && draft.baseSignature !== storedSignature;
   const [attempted, setAttempted] = useState(false);
   const [working, setWorking] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [optionalOpen, setOptionalOpen] = useState(false);
   const lock = useRef(false);
   const mounted = useRef(false);
   const inputRefs = useRef({});
@@ -71,8 +72,8 @@ export default function BudgetPage({ month, expenses, budgets, draft, saving, on
     lock.current = true; setWorking("save");
     try {
       await onSave({ monthlyAmount: total > 0 ? total : null,
-        ...(budgetSignature(values) !== budgetSignature(stored) ? { items: budgetItems(values) } : {}) });
-      if (mounted.current) setNotice("Your monthly budget has been saved.");
+        ...(categoriesChanged ? { items: budgetItems(values) } : {}) });
+      if (mounted.current) setNotice("Your budget has been saved.");
     } catch (err) {
       if (mounted.current) setError(err.message || "Could not save. Your amounts are still here; try again.");
     } finally {
@@ -107,7 +108,7 @@ export default function BudgetPage({ month, expenses, budgets, draft, saving, on
         <div><span>Spent this month</span><strong>{currency.format(spending.total)}</strong><small>{spending.count} recorded expenses</small></div>
         <div><span>{savedTotal && spending.total > savedTotal ? "Over budget" : "Remaining"}</span><strong className={savedTotal && spending.total > savedTotal ? "text-danger" : ""}>{savedTotal ? currency.format(Math.abs(savedTotal - spending.total)) : "—"}</strong></div>
       </section>
-      <details className="panel expense-budget-optional" ref={optionalRef} onToggle={event => setOptionalOpen(event.currentTarget.open)}>
+      <details className="panel expense-budget-optional" ref={optionalRef}>
         <summary>Category limits <small>Optional · no split required</small></summary>
         <p>Set a limit only where it helps. These are separate guardrails within your monthly budget, not extra money. They do not need to add up to it.</p>
       <section className="expense-budget-table" aria-label="Category limits">
@@ -124,8 +125,16 @@ export default function BudgetPage({ month, expenses, budgets, draft, saving, on
           </div>;
         })}
       </section>
+      {categoriesChanged && (
+        <footer className="expense-budget-save">
+          <span role="status">Unsaved category changes{monthlyChanged ? " · monthly limit will also be saved" : ""}</span>
+          <button className="button button--primary" type="submit" disabled={disabled}>
+            {working === "save" || saving ? "Saving…" : "Save category changes"}
+          </button>
+          {error && <p className="inline-notice expense-error" role="alert">{error}</p>}
+        </footer>
+      )}
       </details>
-      {optionalOpen && <footer className="expense-budget-save"><span role="status">{changed ? "Unsaved changes" : "All changes saved"}</span><button className="button button--primary" type="submit" disabled={!changed || disabled}>{working === "save" || saving ? "Saving…" : "Save budget"}</button></footer>}
     </form>
   );
 }
