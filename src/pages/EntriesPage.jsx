@@ -6,7 +6,7 @@ import ExpenseRow from "../components/ExpenseRow";
 import { moneyCents } from "../lib/expenseForms";
 import { categories, currency, groupExpenses, monthLabel, readableDate } from "../lib/spending";
 
-export default function EntriesPage({ month, expenses, deletingId, onAdd, onEdit, onDelete }) {
+export default function EntriesPage({ month, expenses, deletingId, deleteError, onAdd, onEdit, onDelete }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("ALL");
   const [minimumAmount, setMinimumAmount] = useState("");
@@ -46,7 +46,7 @@ export default function EntriesPage({ month, expenses, deletingId, onAdd, onEdit
       </section>
       <div className="expense-result-summary" aria-live="polite"><span>{filtered.length} {filtered.length === 1 ? "expense" : "expenses"}{filteredState && <button className="text-link" type="button" onClick={clearFilters}>Clear filters</button>}</span><strong>{currency.format(total)}</strong></div>
       {groups.length ? <div className="entry-groups">{groups.map((group) => <section className="entry-group" key={group.date}><header><span>{readableDate(group.date, true)}</span><strong>{currency.format(group.total)}</strong></header><div className="entry-group__card">{group.items.map((expense) => <ExpenseRow key={expense.id} expense={expense} onEdit={onEdit} onDelete={setPendingDelete} />)}</div></section>)}</div> : <EmptyState filtered={filteredState && expenses.length > 0} onAdd={onAdd} />}
-      <ConfirmDialog open={Boolean(pendingDelete)} expense={pendingDelete} busy={Boolean(deletingId)} onCancel={() => setPendingDelete(null)} onConfirm={async () => { if (pendingDelete && await onDelete(pendingDelete.id)) setPendingDelete(null); }} />
+      <ConfirmDialog error={deleteError && deleteError.id === pendingDelete?.id ? deleteError.message : ""} open={Boolean(pendingDelete)} expense={pendingDelete} busy={Boolean(deletingId)} onCancel={() => setPendingDelete(null)} onConfirm={async () => { if (pendingDelete && await onDelete(pendingDelete.id)) setPendingDelete(null); }} />
     </div>
   );
 }

@@ -94,6 +94,8 @@ export default function App() {
   const [budgetSaving, setBudgetSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [toast, setToast] = useState(null);
+  const [deleteError, setDeleteError] = useState(null);
+  useEffect(() => { setDeleteError(null); }, [user?.uid]);
   const [intelligenceOpen, setIntelligenceOpen] = useState(false);
   const [aiCaptureOpen, setAiCaptureOpen] = useState(false);
   const [aiSearchOpen, setAiSearchOpen] = useState(false);
@@ -191,6 +193,7 @@ export default function App() {
   }
 
   async function deleteExpense(id) {
+    setDeleteError(null);
     if (deleteWrite.current) return false;
     deleteWrite.current = true;
     const owner = user.uid;
@@ -216,6 +219,7 @@ export default function App() {
       });
       return true;
     } catch (error) {
+      if (activeUser.current === owner) setDeleteError({ id, message: error.message || "Could not delete. Your record is kept." });
       if (activeUser.current === owner) setToast({ tone: "error", message: error.message });
       return false;
     } finally {
@@ -289,7 +293,7 @@ export default function App() {
               onEdit={openEdit}
               onOpenAiCapture={() => setAiCaptureOpen(true)}
               onDelete={deleteExpense}
-              deletingId={deletingId}
+              deleteError={deleteError} deletingId={deletingId}
             />
           )}
         />
@@ -300,7 +304,7 @@ export default function App() {
               key={`${user.uid}:${manager.month}`}
               month={manager.month}
               expenses={manager.expenses}
-              deletingId={deletingId}
+              deleteError={deleteError} deletingId={deletingId}
               onAdd={() => setAiCaptureOpen(true)}
               onEdit={openEdit}
               onDelete={deleteExpense}

@@ -7,7 +7,7 @@ export default function Toast({ toast, onClose }) {
   const actionLock = useRef(false);
   useEffect(() => { setPaused(false); }, [toast]);
   useEffect(() => {
-    if (!toast || paused || actionBusy) return;
+    if (!toast || paused || actionBusy || toast.tone === "error") return;
     const timer = window.setTimeout(onClose, toast.action ? 10000 : 4200);
     return () => window.clearTimeout(timer);
   }, [toast, onClose, paused, actionBusy]);

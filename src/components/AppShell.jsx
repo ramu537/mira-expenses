@@ -102,16 +102,13 @@ export default function AppShell({ month, onMonthChange, onAdd, onOpenIntelligen
           <MonthControl month={month} onChange={onMonthChange} />
           <div className="topbar-actions">
             <ThemeControl />
-            <button className="button button--secondary topbar-capture" type="button" onClick={onAdd} title="Manual entry — optional">
-              <Plus size={17} /> <span>Manual entry</span>
-            </button>
             <button className="button button--primary topbar-add" type="button" onClick={onOpenAiCapture} aria-label="Add expense with text or receipt">
               <Plus size={18} strokeWidth={2.4} />
               <span className="topbar-add__full">Add expense</span><span className="topbar-add__short" aria-hidden="true">Add</span>
             </button>
             <div className="expense-toolbar-tools" ref={toolsRoot} onKeyDown={(event) => { if (event.key === "Escape" && toolsOpen) { event.preventDefault(); setToolsOpen(false); toolsTrigger.current?.focus(); } }}>
               <button ref={toolsTrigger} className="icon-button" type="button" aria-label="More expense tools" aria-expanded={toolsOpen} aria-controls={toolsId} onClick={() => setToolsOpen((value) => !value)}><MoreHorizontal size={20} /></button>
-              {toolsOpen && <div id={toolsId} className="expense-toolbar-tools__panel" role="group" aria-label="Expense tools"><button type="button" onClick={() => openTool(onOpenIntelligence)}><Sparkles size={17} /> Spending insights</button><button type="button" onClick={() => openTool(onOpenAiSearch)}><Search size={17} /> Search memory <small>Ctrl/⌘ K</small></button><button type="button" onClick={() => openTool(onLogout)}><LogOut size={17} /> Sign out</button></div>}
+              {toolsOpen && <div id={toolsId} className="expense-toolbar-tools__panel" role="group" aria-label="Expense tools"><button type="button" onClick={() => openTool(onAdd)}><Plus size={17} /> Manual entry</button><button type="button" onClick={() => openTool(onOpenIntelligence)}><Sparkles size={17} /> Spending insights</button><button type="button" onClick={() => openTool(onOpenAiSearch)}><Search size={17} /> Search memory <small>Ctrl/⌘ K</small></button><button type="button" onClick={() => openTool(onLogout)}><LogOut size={17} /> Sign out</button></div>}
             </div>
             {user && (
               <div className="topbar-user">

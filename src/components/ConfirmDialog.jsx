@@ -1,7 +1,7 @@
 import { AlertTriangle, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 
-export default function ConfirmDialog({ open, expense, busy, onCancel, onConfirm }) {
+export default function ConfirmDialog({ open, expense, busy, error, onCancel, onConfirm }) {
   const dialogRef = useRef(null);
 
   useEffect(() => {
@@ -30,6 +30,7 @@ export default function ConfirmDialog({ open, expense, busy, onCancel, onConfirm
         </button>
         <span className="confirm-icon"><AlertTriangle size={22} /></span>
         <h2 id="delete-expense-title">Delete this expense?</h2>
+        {error && !busy && <p className="integration-error" role="alert">{error}</p>}
         <p><strong>{expense?.title}</strong> will be removed from your expenses. You can undo this using the message that appears after deleting.</p>
         <div className="dialog-actions">
           <button className="button button--ghost" type="button" onClick={onCancel} disabled={busy}>Keep it</button>

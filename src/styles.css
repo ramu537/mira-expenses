@@ -2434,9 +2434,9 @@
     .save-dock > span { display: none; }
     .save-dock .button { width: 100%; }
 
-    .dialog { align-items: end !important; padding: 0; }
+    .dialog { align-items: end; padding: 0; }
     .dialog-card {
-      width: 100% !important;
+      width: 100%;
       max-height: min(90vh, 48rem);
       border-radius: var(--radius-lg) var(--radius-lg) 0 0;
       border-bottom: 0;

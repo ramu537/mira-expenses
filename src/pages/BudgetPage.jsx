@@ -29,7 +29,6 @@ export default function BudgetPage({ month, expenses, budgets, draft, saving, on
   const monthlyError = String(monthlyAmount).trim() ? moneyError(monthlyAmount) : "";
   const total = (moneyCents(monthlyAmount, true) ?? 0) / 100;
   const savedTotal = (moneyCents(storedAmount, true) ?? 0) / 100;
-  const remaining = total - spending.total;
 
   function update(key, value) {
     setError(""); setNotice("");
@@ -84,19 +83,30 @@ export default function BudgetPage({ month, expenses, budgets, draft, saving, on
 
   return (
     <form className="page-stack expense-budget-page" onSubmit={save} noValidate onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); event.currentTarget.requestSubmit(); } }}>
-      <header className="expense-page-heading"><div><span className="eyebrow">{monthLabel(month)}</span><h1>Your monthly budget</h1><p>One amount. Everything else is optional.</p></div><button className="button button--secondary" type="button" disabled={disabled} onClick={copyPrevious}><ArrowDownToLine size={17} /> {working === "copy" ? "Copying…" : "Copy last month"}</button></header>
+      <header className="expense-page-heading"><div><span className="eyebrow">{monthLabel(month)}</span><h1>Budget</h1><p>Set one spending limit for the month. Nothing else is required.</p></div></header>
       <section className="panel expense-monthly-budget" aria-label="Set monthly budget">
-        <label className="field" htmlFor="monthly-budget"><span>How much do you want to spend this month?</span><span className="input-affix"><span aria-hidden="true">₹</span><input id="monthly-budget" ref={node => { inputRefs.current.monthly = node; }} type="text" inputMode="decimal" autoComplete="off" autoFocus placeholder="e.g. 30,000" value={monthlyAmount} disabled={disabled} onChange={event => updateMonthly(event.target.value)} aria-invalid={attempted && Boolean(monthlyError)} aria-describedby={attempted && monthlyError ? "monthly-budget-help monthly-budget-error" : "monthly-budget-help"} /></span><small id="monthly-budget-help">No category breakdown needed. Clear the amount to remove your monthly budget.</small>{attempted && monthlyError && <small className="field-error" id="monthly-budget-error">{monthlyError}</small>}</label>
-        <div className="expense-monthly-budget__actions"><button className="button button--primary" type="submit" disabled={!changed || disabled}>{working === "save" || saving ? "Saving…" : "Save budget"}</button>{monthlyAmount && <button className="button button--ghost" type="button" disabled={disabled} onClick={() => updateMonthly("")}>Remove monthly limit</button>}{draft && <button className="button button--ghost" type="button" disabled={disabled} onClick={() => { onDraftChange(null); setError(""); setNotice(""); setAttempted(false); }}><RotateCcw size={16} /> Discard changes</button>}</div>
+        <label className="expense-monthly-budget__label" htmlFor="monthly-budget">Monthly spending limit</label>
+        <div className="expense-monthly-budget__entry">
+          <span className="input-affix"><span aria-hidden="true">₹</span><input id="monthly-budget" ref={node => { inputRefs.current.monthly = node; }} type="text" inputMode="decimal" autoComplete="off" placeholder="30,000" value={monthlyAmount} disabled={disabled} onChange={event => updateMonthly(event.target.value)} aria-invalid={attempted && Boolean(monthlyError)} aria-describedby={attempted && monthlyError ? "monthly-budget-help monthly-budget-error" : "monthly-budget-help"} /></span>
+          <button className="button button--primary" type="submit" disabled={!changed || disabled}>{working === "save" || saving ? "Saving…" : "Save budget"}</button>
+        </div>
+        <p id="monthly-budget-help">An overall limit—not your bank balance. Category limits are optional.</p>
+        {attempted && monthlyError && <p className="field-error" id="monthly-budget-error" role="alert">{monthlyError}</p>}
+        {remoteChanged && <p className="inline-notice" role="status">The saved budget changed while you were editing. Your draft is kept. Save to replace it, or discard to use the latest saved amounts.</p>}
+        {error && <p className="inline-notice expense-error" role="alert">{error}</p>}
+        {notice && <p className="inline-notice" role="status">{notice}</p>}
+        <div className="expense-monthly-budget__actions">
+          <button className="text-link" type="button" disabled={disabled} onClick={copyPrevious}><ArrowDownToLine size={16} /> {working === "copy" ? "Copying…" : "Use last month"}</button>
+          {monthlyAmount && <button className="text-link" type="button" disabled={disabled} onClick={() => { updateMonthly(""); inputRefs.current.monthly?.focus(); }}>Clear limit</button>}
+          {draft && <button className="text-link" type="button" disabled={disabled} onClick={() => { onDraftChange(null); setError(""); setNotice(""); setAttempted(false); }}><RotateCcw size={16} /> Discard changes</button>}
+        </div>
+        {changed && <small className="expense-monthly-budget__draft" role="status">{monthlyAmount ? "Unsaved changes" : "Save to remove your monthly limit."}</small>}
       </section>
-      <section className="expense-budget-summary" aria-label="Budget summary">
-        <div><span>{changed ? "Draft monthly budget" : "Monthly budget"}</span><strong>{monthlyError ? "Check amount" : total ? currency.format(total) : "Not set"}</strong><small>{changed ? `Saved budget: ${savedTotal ? currency.format(savedTotal) : "not set"}` : "Your overall spending limit"}</small></div>
+      <section className="expense-budget-summary" aria-label="Saved budget summary">
+        <div><span>Saved monthly limit</span><strong>{savedTotal ? currency.format(savedTotal) : "Not set"}</strong></div>
         <div><span>Spent this month</span><strong>{currency.format(spending.total)}</strong><small>{spending.count} recorded expenses</small></div>
-        <div><span>{remaining < 0 && total ? "Over budget" : "Left in budget"}</span><strong className={remaining < 0 && total ? "text-danger" : ""}>{total && !monthlyError ? currency.format(Math.abs(remaining)) : "—"}</strong><small>A spending limit, not your bank balance</small></div>
+        <div><span>{savedTotal && spending.total > savedTotal ? "Over budget" : "Remaining"}</span><strong className={savedTotal && spending.total > savedTotal ? "text-danger" : ""}>{savedTotal ? currency.format(Math.abs(savedTotal - spending.total)) : "—"}</strong></div>
       </section>
-      {remoteChanged && <p className="inline-notice" role="status">The saved budget changed while you were editing. Your draft is kept. Save to replace it, or discard to use the latest saved amounts.</p>}
-      {error && <p className="inline-notice expense-error" role="alert">{error}</p>}
-      {notice && <p className="inline-notice" role="status">{notice}</p>}
       <details className="panel expense-budget-optional" ref={optionalRef} onToggle={event => setOptionalOpen(event.currentTarget.open)}>
         <summary>Category limits <small>Optional · no split required</small></summary>
         <p>Set a limit only where it helps. These are separate guardrails within your monthly budget, not extra money. They do not need to add up to it.</p>

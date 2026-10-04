@@ -7,7 +7,7 @@ import ExpenseRow from "../components/ExpenseRow";
 import SpendingTrend from "../components/SpendingTrend";
 import { effectiveBudgetTotal, buildCategoryData, buildDailyData, buildSummary, currency, monthLabel } from "../lib/spending";
 
-export default function DashboardPage({ month, expenses, budgets, onAdd, onOpenAiCapture, onEdit, onDelete, deletingId }) {
+export default function DashboardPage({ month, expenses, budgets, onAdd, onOpenAiCapture, onEdit, onDelete, deletingId, deleteError }) {
   const summary = useMemo(() => buildSummary(expenses), [expenses]);
   const dailyData = useMemo(() => buildDailyData(expenses, month), [expenses, month]);
   const categoryData = useMemo(() => buildCategoryData(expenses), [expenses]);
@@ -40,7 +40,7 @@ export default function DashboardPage({ month, expenses, budgets, onAdd, onOpenA
         {expenses.length ? <div>{expenses.slice(0, 6).map((expense) => <ExpenseRow key={expense.id} expense={expense} showDate onEdit={onEdit} onDelete={setPendingDelete} />)}</div> : <div className="expense-start"><div><strong>Your purchases, all in one place.</strong><p>For example: “Paid ₹280 for lunch today.” No budget setup required to start.</p></div><div><button className="button button--primary" type="button" onClick={onOpenAiCapture}><Sparkles size={18} /> Log first expense</button><button className="button button--secondary" type="button" onClick={onAdd}><Plus size={18} /> Manual entry</button></div></div>}
       </section>
       {expenses.length > 0 && <section className="analytics-grid"><SpendingTrend data={dailyData} /><CategoryBreakdown data={categoryData} total={summary.total} /></section>}
-      <ConfirmDialog open={Boolean(pendingDelete)} expense={pendingDelete} busy={Boolean(deletingId)} onCancel={() => setPendingDelete(null)} onConfirm={async () => { if (pendingDelete && await onDelete(pendingDelete.id)) setPendingDelete(null); }} />
+      <ConfirmDialog error={deleteError && deleteError.id === pendingDelete?.id ? deleteError.message : ""} open={Boolean(pendingDelete)} expense={pendingDelete} busy={Boolean(deletingId)} onCancel={() => setPendingDelete(null)} onConfirm={async () => { if (pendingDelete && await onDelete(pendingDelete.id)) setPendingDelete(null); }} />
     </div>
   );
 }
